@@ -1,1 +1,1 @@
-hello!
+hashspeed.WalletCode(["lead"]) = 334347915

@@ -1,13 +1,15 @@
 import threading
 import Queue
+import socket
+
 #listen_socket is global
 TCP_IP = '127.0.0.1'
 TCP_PORT = 5005
-listen_socket = socket.socket(socket.AF_INET,
- socket.SOCK_STREAM)
+listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)
 g_queue = Queue.Queue()
+
 def AcceptLoop():
    global g_queue
    while True:
@@ -26,6 +28,6 @@ while True:
    except Queue.Empty:
        soc = None
 
-   HandleAllSockets()  # handle sockets[i]
-   DoSomeCoinMining()
+   #HandleAllSockets()  # handle sockets[i]
+   #DoSomeCoinMining()
    time.sleep(0.1)  # if you don't want the laptop to hang.

@@ -19,13 +19,13 @@ def Log2(n):
             return i
     return 99
 
-
+g_puzzle_bits0 = 20  # put in a variable so we can make it lower for testing
 def NumberOfZerosForPuzzle(block_serial_number):
     """Given a block serial number - how many zeros should be at the end of its signature
     >>> NumberOfZerosForPuzzle(1000)
     30
     """
-    return 20 + Log2(block_serial_number)
+    return g_puzzle_bits0 + Log2(block_serial_number)
 
 
 def WalletCode(member_names_list):
@@ -93,24 +93,30 @@ def CheckBlockSignature(serial, wallet, prev_sig, puzzle, block_sig):
         return 5
     return 0
 
+def unpack_clock_to_tuple(block_bin):
+    return struct.unpack(">LL8sL12s", block_bin)
 
 def IsValidBlock(prev_block_bin, block_bin):
     """Check if block_bin is valid given the previous block.
     return 0 if Block ok, a reason number if not.
     """
-    prev_block = struct.unpack(">LL8sL12s", prev_block_bin)
-    block = struct.unpack(">LL8sL12s", block_bin)
+    prev_block = unpack_clock_to_tuple(prev_block_bin)
+    block = unpack_clock_to_tuple(block_bin)
+    return IsValidBlockUnpacked(prev_block, block)
+
+
+def IsValidBlockUnpacked(prev_block_tuple, block_tuple):
     # check serial number
-    if block[0] != prev_block[0] + 1:
+    if block_tuple[0] != prev_block_tuple[0] + 1:
         return 1
     # check that not same wallet number
-    if block[1] == prev_block[1]:
+    if block_tuple[1] == prev_block_tuple[1]:
         return 2
     # check that new block contins part of prev block signature
-    if block[2] != prev_block[4][:8]:
+    if block_tuple[2] != prev_block_tuple[4][:8]:
         return 3
     #calculate the signature for the block
-    return CheckBlockSignature(*block)
+    return CheckBlockSignature(*block_tuple)
 
 
 def MineCoinAttempts(my_wallet, prev_block_bin, attempts_count):

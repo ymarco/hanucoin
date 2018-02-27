@@ -19,28 +19,28 @@ class node:
 class socdict:
 	def __init__(self,soc):
 
-		self.cmd = struct.unpack(">I",soc.read(4))[0]
-		start_nodes = struct.unpack(">I",soc.read(4))[0]
-		node_count = struct.unpack(">I",soc.read(4))[0]
+		self.cmd = struct.unpack(">I",soc.recv(4))[0]
+		start_nodes = struct.unpack(">I",soc.recv(4))[0]
+		node_count = struct.unpack(">I",soc.recv(4))[0]
 		self.nodes = {} #changed that into a LIST
 		for x in xrange(node_count):
-			name_len = struct.unpack("B",soc.read(1))[0]
-			name = soc.read(name_len)
-			host_len = struct.unpack("B",soc.read(1))[0]
-			host = soc.read(host_len)
-			port = struct.unpack(">H",soc.read(2))[0]
-			last_seen_ts = struct.unpack(">I",soc.read(4))[0]
+			name_len = struct.unpack("B",soc.recv(1))[0]
+			name = soc.recv(name_len)
+			host_len = struct.unpack("B",soc.recv(1))[0]
+			host = soc.recv(host_len)
+			port = struct.unpack(">H",soc.recv(2))[0]
+			last_seen_ts = struct.unpack(">I",soc.recv(4))[0]
 			self.nodes[host+port]=node(host,name,port,last_seen_ts) #If two nodes have the same host and port one of them is unnecessary
 
-		start_blocks = struct.unpack(">I",soc.read(4))[0]
-		block_count = struct.unpack(">I",soc.read(4))[0]
+		start_blocks = struct.unpack(">I",soc.recv(4))[0]
+		block_count = struct.unpack(">I",soc.recv(4))[0]
 		self.blocks={}
 		for x in xrange(block_count):
-			serial_number = struct.unpack(">I",soc.read(4))[0]
-			wallet = struct.unpack(">I",soc.read(4))[0]
-			prev_sig = soc.read(8)
-			puzzle = soc.read(4)
-			sig = soc.read(12)
+			serial_number = struct.unpack(">I",soc.recv(4))[0]
+			wallet = struct.unpack(">I",soc.recv(4))[0]
+			prev_sig = soc.recv(8)
+			puzzle = soc.recv(4)
+			sig = soc.recv(12)
 			self.blocks[serial_number] = (wallet,prev_sig,puzzle,sig)
 	#Example:
 	#thingy = socdict(soc)

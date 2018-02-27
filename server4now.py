@@ -68,9 +68,9 @@ def handleSocNodes(sock):
 	for adress in soc.nodes.iterkeys():
 		if (adress not in activeNodes.iterkeys()) or (activeNodes[adress].ts<soc.nodes[adress].ts<int(time.time())):
 			activeNodes[adress]=soc.nodes[adress]
-	if soc.cmd is 1:
+	if soc.cmd == 1:
 		#send respond messege with cmd=2
-		
+		soc.send(createMessage(2))
 		
 	
 

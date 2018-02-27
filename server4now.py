@@ -1,4 +1,4 @@
-int(time.time())import threading
+import threading
 import Queue
 import socket
 import hashspeed

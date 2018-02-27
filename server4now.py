@@ -86,8 +86,8 @@ newSocs = []
 def AcceptLoop():
    global g_newSocs
    while True:
-       soc, addr = listen_socket.accept()  # synchronous, blocking
-       g_queue.put(soc)
+       soc, addr = listen_socket.accept() #we put it on another thread 'cos its blocking
+       g_queue.put(soc) #sending the soc to proccesing on main thread
 
 
 threading.Thread(target=AcceptLoop).start() 

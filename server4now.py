@@ -20,7 +20,7 @@ class socdict:
 			host = soc.read(host_len)
 			port = struct.unpack(">H",soc.read(2))
 			last_seen_ts = struct.unpack(">I",soc.read(4))
-			self.nodes[host] = (name,port,last_seen_ts)
+			self.nodes[host] = (host,name,port,last_seen_ts)
 
 		start_blocks = struct.unpack(">I",soc.read(4))
 		block_count = struct.unpack(">I",soc.read(4))
@@ -39,7 +39,8 @@ class socdict:
 
 def handlesoc(soc)
 	soc = socdict(soc)
-	soc.
+	for hostname
+		soc.
 	
 
 #listen_socket is global

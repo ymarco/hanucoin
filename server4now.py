@@ -37,6 +37,11 @@ class socdict:
 	#print(thingy.cmd) >> 45 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
 
+def handlesoc(soc)
+	soc = socdict(soc)
+	soc.
+	
+
 #listen_socket is global
 TCP_IP = '127.0.0.1'
 TCP_PORT = 5005

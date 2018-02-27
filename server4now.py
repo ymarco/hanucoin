@@ -50,7 +50,7 @@ class socdict:
 
 def createMessege(cmd_i):
 	cmd = struct.pack(">I",cmd_i)
-	start_nodes = struct.pack(">I", 0xbeefbeed)
+	start_nodes = struct.pack(">I", 0xbeefbeef)
 	nodes_count = struct.pack(">I", len(activeNodes))
 
 	nodes = ''

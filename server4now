@@ -12,13 +12,14 @@ def HandleSoc(soc, socnum):
 	socnum[node_count] = struct.unpack(">I",soc.read(4))
 	socnum[nodes] = {}
 	for x in xrange(socnum[node_count]):
-		socnum[nodes][name_len] = struct.unpack("B",soc.read(1))
-		socnum[nodes][name] = soc.read(name_len)
-		socnum[nodes][host_len] = struct.unpack("B",soc.read(1))
-		socnum[nodes][host] = soc.read(host_len)
-		socnum[nodes][port] = struct.unpack(">H",soc.read(2))
-		socnum[nodes][last_seen_ts] = struct.unpack(">I",soc.read(4))
-		socnum[nodes][name] = (socnum[nodes][host],socnum[nodes][port],socnum[nodes][last_seen_ts])
+		socnum[nodes][x] = {}
+		socnum[nodes][x][name_len] = struct.unpack("B",soc.read(1))
+		socnum[nodes][x][name] = soc.read(name_len)
+		socnum[nodes][x][host_len] = struct.unpack("B",soc.read(1))
+		socnum[nodes][x][host] = soc.read(host_len)
+		socnum[nodes][x][port] = struct.unpack(">H",soc.read(2))
+		socnum[nodes][x][last_seen_ts] = struct.unpack(">I",soc.read(4))
+		socnum[nodes][x][name] = (socnum[nodes][host],socnum[nodes][port],socnum[nodes][last_seen_ts])
 
 	start_blocks = struct.unpack(">I",hanukc.read(4))
 	block_count = struct.unpack(">I",hanukc.read(4))

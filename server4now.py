@@ -2,6 +2,7 @@ import threading
 import socket
 import hashspeed
 import time
+import Queue
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
@@ -79,13 +80,14 @@ TCP_PORT = 8089
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)
-g_newSocs = []
+g_queue = Queue.Queue()
+newSocs = []
 
 def AcceptLoop():
    global g_newSocs
    while True:
        soc, addr = listen_socket.accept()  # synchronous, blocking
-       g_newSocs.append(soc)
+       g_queue.put(soc)
 
 
 threading.Thread(target=AcceptLoop).start() 
@@ -95,11 +97,13 @@ threading.Thread(target=AcceptLoop).start()
 while True:
 	# soc is a new accepted socket
 	try:
-		soc = g_newSocs.pop([0])
+		soc = g_queue.get()
+		newSocs.append(soc)  # add to list
+
 	except Queue.Empty:
 		soc = None
 
-	for soc in g_newSocs:
+	for soc in newSocs:
 		handleSocNodes(soc)
 	#DoSomeCoinMining()
    

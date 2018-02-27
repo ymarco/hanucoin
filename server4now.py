@@ -1,8 +1,4 @@
-import threading
-import socket
-import hashspeed
-import time
-import Queue
+import threading,socket,hashspeed,time,Queue
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
@@ -13,7 +9,7 @@ class node:
 		self.name=name
 		self.port=port
 		self.ts=ts
-	def __eq__(self,other)
+	def __eq__(self,other):
 		return self.__dict__==other.__dict__
 
 class socdict:
@@ -31,7 +27,7 @@ class socdict:
 			host = soc.recv(host_len)
 			port = struct.unpack(">H",soc.recv(2))[0]
 			last_seen_ts = struct.unpack(">I",soc.recv(4))[0]
-			self.nodes[host+port]=node(host,name,port,last_seen_ts) #If two nodes have the same host and port one of them is unnecessary
+			self.nodes[(host,port)]=node(host,name,port,last_seen_ts) #If two nodes have the same host and port one of them is unnecessary
 
 		start_blocks = struct.unpack(">I",soc.recv(4))[0]
 		block_count = struct.unpack(">I",soc.recv(4))[0]
@@ -66,13 +62,13 @@ def createMessege(cmd_i):
 def updateBySock(sock):
 	global activeNodes,nodes_updated
 	soc = socdict(sock)
-	for adress in soc.nodes.iterkeys():
-		if adress not in activeNodes.iterkeys():
-			nodes_updated=True
-			activeNodes[adress]=soc.nodes[adress]
-		elif activeNodes[adress].ts<soc.nodes[adress].ts<int(time.time()):
-			activeNodes[adress].ts=soc.nodes[adress].ts
-	
+	for adress,nod in soc.nodes.iteritems():
+		if currentTime-1800<nod.ts<=currentTime #If it's not a message from the future or from more than 30 minutes ago
+			if adress not in activeNodes.iterkeys():
+				nodes_updated=True
+				activeNodes[adress]=nod
+			elif activeNodes[adress].ts<nod.ts<int(time.time()):
+				activeNodes[adress].ts=nod.ts
 
 #listen_socket is global
 TCP_IP = '127.0.0.1'
@@ -81,10 +77,8 @@ listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)
 g_queue = Queue.Queue()
-newSocs = []
 
 def inputLoop():
-   global g_newSocs
    while True:
        sock, addr = listen_socket.accept()  # synchronous, blocking
        updateBySock(sock)
@@ -95,17 +89,27 @@ def inputLoop():
 
 threading.Thread(target=inputLoop).start() 
 
-
-
+out_socket = socket.socket(sockt.AF_INET,socket.SOCK_STREAM)
 while True:
 
 	#DoSomeCoinMining()
-   
-	if int(time.time()) - timeBuffer >= 5*60 : #once every 5 min:
+   	currentTime=int(time.time())
+	if nodes_updated or currentTime - 5*60 >= timeBuffer: #once every 5 min:
+		timeBuffer=currentTime
+		nodes_updated=False
+
+		for adress in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 adresses
+			out_socket.connect(adress)
+			out_socket.send(createMessage(1))
+			updateBySock(out_socket)
+
+	"""DELETE 30 MIN OLD NODES:
 		for adress in activeNodes.iterkeys():
-			if int(time.time())int(time.time()) - activeNodes[address][ts] >= 30*60 #the node wasnt seen in 30min:
-				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes 
+			if currentTime - activeNodes[address][ts] >= 30*60 #the node wasnt seen in 30min:
+				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes"""
 		
    
 	
 	time.sleep(0.1)  # we dont want the laptop to hang.
+
+	#IDEA: mine coins with an iterator for 'freezing' abillity

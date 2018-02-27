@@ -14,7 +14,7 @@ class node:
 		self.port=port
 		self.ts=ts
 	def __eq__(self,other)
-	 return self.__dict__==other.__dict__
+		return self.__dict__==other.__dict__
 
 class socdict:
 	def __init__(self,soc):

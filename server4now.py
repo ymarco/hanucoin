@@ -2,7 +2,7 @@ import threading
 import Queue
 import socket
 import hashspeed
-import time, datetime
+import time
 
 activeNodes = {}
 

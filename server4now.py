@@ -86,6 +86,12 @@ while True:
    except Queue.Empty:
        soc = None
 
-   #HandleAllSockets()  # handle sockets[i]
+   #handldeSocNodes(soc)
    #DoSomeCoinMining()
-   time.sleep(0.1)  # if you don't want the laptop to hang.
+   
+   #once per 5 minutes:
+   
+   #for node in activeNodes:
+   	#if int(time.time()) - node.last_seen_ts >= 60*30:
+		#del activeNodes[node]
+   time.sleep(0.1)  # we dont want the laptop to hang.

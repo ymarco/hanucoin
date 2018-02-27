@@ -37,10 +37,17 @@ class socdict:
 	#print(thingy.cmd) >> 45 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
 
-def handlesoc(soc)
+def handleSocNodes(soc)
 	soc = socdict(soc)
-	for hostname
-		soc.
+	#for node in soc:
+		#if (node already exists in groupe) and (node.last_seen_ts is bigger than (node.last_seen_ts that is the same node)) :
+			#update node.last_seen_ts
+		#else:
+			#add node to activeNode (its a set)
+	#if soc.cmd is 1
+		#send respond messege with cmd=2
+		
+		
 	
 
 #listen_socket is global

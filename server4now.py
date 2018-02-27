@@ -47,11 +47,11 @@ class socdict:
 	#print(thingy.cmd) >> 1 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
 
-def sendMessege(cmd_i):
+def createMessege(cmd_i):
 	cmd = struct.pack(">I",cmd_i)
 	start_nodes = struct.pack(">I", 0xbeefbeed)
-	nodes_count = struct.pack(">I", len(activeNodes)
-	nodes = []
+	nodes_count = struct.pack(">I", len(activeNodes))
+	nodes = ''
 	for node in activenodes.itervalues() #preparing NODES
 		namelen=0
 		for i in node.name: #getting name_len
@@ -61,6 +61,11 @@ def sendMessege(cmd_i):
 		for i in node.host
 			hostlen +=1
 		host_len = struct.pack('B', hostlen)
+		port = struct.pack(">H", node.port)
+		last_seen_ts = struct.pack(">I", node.port)
+		
+		nodes = nodes + name_len + node.name + host_len + name.host + port + last_seen_ts
+	return nodes
 
 
 def handleSocNodes(sock):

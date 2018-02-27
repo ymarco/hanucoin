@@ -52,8 +52,15 @@ def sendMessege(cmd_i):
 	start_nodes = struct.pack(">I", 0xbeefbeed)
 	nodes_count = struct.pack(">I", len(activeNodes)
 	nodes = []
-	for node_i in activeNodes:
-		nodes_i
+	for node in activenodes.itervalues() #preparing NODES
+		namelen=0
+		for i in node.name: #getting name_len
+			namelen += 1
+		name_len = struct.pack('B' , namelen)
+		hostlen=0
+		for i in node.host
+			hostlen +=1
+		host_len = struct.pack('B', hostlen)
 
 
 def handleSocNodes(sock):

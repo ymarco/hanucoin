@@ -1,5 +1,4 @@
 import threading
-import Queue
 import socket
 import hashspeed
 import time
@@ -80,35 +79,35 @@ TCP_PORT = 8089
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)
-g_queue = Queue.Queue()
+g_newSocs = []
 
 def AcceptLoop():
-   global g_queue
+   global g_newSocs
    while True:
        soc, addr = listen_socket.accept()  # synchronous, blocking
-       g_queue.put(soc)
+       g_newSocs.append(soc)
 
 
-threading.Thread(target=AcceptLoop).start()
+threading.Thread(target=AcceptLoop).start() 
 
 
 
 while True:
 	# soc is a new accepted socket
 	try:
-		soc = g_queue.get()
-		sockets.append(soc)  # add to list
+		soc = g_newSocs.pop([0])
 	except Queue.Empty:
 		soc = None
 
-	#handldeSocNodes(soc)
+	for soc in g_newSocs:
+		handleSocNodes(soc)
 	#DoSomeCoinMining()
    
-	if int(time.time()) timeBuffer >= 5*60 : #once every 5 min:
+	if int(time.time()) - timeBuffer >= 5*60 : #once every 5 min:
 		for adress in activeNodes.iterkeys():
 			if int(time.time())int(time.time()) - activeNodes[address][ts] >= 30*60 #the node wasnt seen in 30min:
 				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes 
 		
    
 	
-time.sleep(0.1)  # we dont want the laptop to hang.
+	time.sleep(0.1)  # we dont want the laptop to hang.

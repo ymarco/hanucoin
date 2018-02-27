@@ -27,10 +27,10 @@ def HandleSoc(soc, socnum):
 	for x in xrange(socnum[block_count]):
 		socnum[blocks][x] = {}
 		socnum[blocks][x][serial_number] = struct.unpack(">I",hanukc.read(4))
-		socnum[blocks][x][wallet] = 
-		socnum[blocks][x][prev_sig] = 
-		socnum[blocks][x][puzzle] = 
-		socnum[blocks][x][sig] = 
+		socnum[blocks][x][wallet] = struct.unpack(">I",soc.read(4))
+		socnum[blocks][x][prev_sig] = hanukc.read(8)
+		socnum[blocks][x][puzzle] = hanukc.read(4)
+		socnum[blocks][x][sig] = hanukc.read(12)
 
 
 

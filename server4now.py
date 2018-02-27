@@ -52,28 +52,16 @@ def createMessege(cmd_i):
 	cmd = struct.pack(">I",cmd_i)
 	start_nodes = struct.pack(">I", 0xbeefbeed)
 	nodes_count = struct.pack(">I", len(activeNodes))
+
 	nodes = ''
-	nodes_count = 0
-	for node in activenodes.itervalues() 	#preparing NODES
-		nodes_count += 1
-		namelen=0
-		for i in node.name: #getting name_len
-			namelen += 1
-		name_len = struct.pack('B' , namelen)
-		hostlen=0
-		for i in node.host
-			hostlen +=1
-		host_len = struct.pack('B', hostlen)
-		port = struct.pack(">H", node.port)
-		last_seen_ts = struct.pack(">I", node.port)
-		nodes = nodes + name_len + node.name + host_len + name.host + port + last_seen_ts
+	for node in activeNodes.itervalues() 	#preparing NODES
+		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 		
 	start_blocks = struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now
 	blocks = ''              #we dont mine for now	
 		
-	message = cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blo
-	return messege
+	return cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blocks
 
 def handleSocNodes(sock):
 	soc = socdict(sock)

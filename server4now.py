@@ -52,7 +52,9 @@ def createMessege(cmd_i):
 	start_nodes = struct.pack(">I", 0xbeefbeed)
 	nodes_count = struct.pack(">I", len(activeNodes))
 	nodes = ''
-	for node in activenodes.itervalues() #preparing NODES
+	nodes_count = 0
+	for node in activenodes.itervalues() 	#preparing NODES
+		nodes_count += 1
 		namelen=0
 		for i in node.name: #getting name_len
 			namelen += 1
@@ -63,10 +65,14 @@ def createMessege(cmd_i):
 		host_len = struct.pack('B', hostlen)
 		port = struct.pack(">H", node.port)
 		last_seen_ts = struct.pack(">I", node.port)
-		
 		nodes = nodes + name_len + node.name + host_len + name.host + port + last_seen_ts
-	return nodes
-
+		
+	start_blocks = struct.pack(">I", 0xdeaddead)
+	block_count = struct.pack(">I", 0) # 0 for now
+	blocks = ''              #we dont mine for now	
+		
+	message = cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blo
+	return messege
 
 def handleSocNodes(sock):
 	soc = socdict(sock)
@@ -81,7 +87,7 @@ def handleSocNodes(sock):
 
 #listen_socket is global
 TCP_IP = '127.0.0.1'
-TCP_PORT = 5005
+TCP_PORT = 8089
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)

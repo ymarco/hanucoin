@@ -56,10 +56,10 @@ def sendMessege(cmd_i):
 		nodes_i
 
 
-def handleSocNodes(sock)
+def handleSocNodes(sock):
 	soc = socdict(sock)
 	for adress in soc.nodes.iterkeys():
-		if (adress not in activeNodes.iterkeys()) or (activeNodes[adress].ts<soc.nodes[adress].ts):
+		if (adress not in activeNodes.iterkeys()) or (activeNodes[adress].ts<soc.nodes[adress].ts<int(time.time())):
 			activeNodes[adress]=soc.nodes[adress]
 	if soc.cmd is 1:
 		#send respond messege with cmd=2

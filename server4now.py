@@ -63,7 +63,7 @@ def createMessege(cmd_i):
 		
 	return cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blocks
 
-def handleSocNodes(sock):
+def handleSoc(sock):
 	soc = socdict(sock)
 	for adress in soc.nodes.iterkeys():
 		if (adress not in activeNodes.iterkeys()) or (activeNodes[adress].ts<soc.nodes[adress].ts<int(time.time())):
@@ -104,7 +104,7 @@ while True:
 		soc = None
 
 	for soc in newSocs:
-		handleSocNodes(soc)
+		handleSoc(soc)
 	#DoSomeCoinMining()
    
 	if int(time.time()) - timeBuffer >= 5*60 : #once every 5 min:

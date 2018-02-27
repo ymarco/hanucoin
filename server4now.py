@@ -4,7 +4,7 @@ import socket
 import hashspeed
 import time
 
-activeNodes = {}
+activeNodes = [] #its a LIST
 
 class node:
 	def __init__(self,host,name,port,ts):
@@ -21,7 +21,7 @@ class socdict:
 		self.cmd = struct.unpack(">I",soc.read(4))
 		start_nodes = struct.unpack(">I",soc.read(4))
 		node_count = struct.unpack(">I",soc.read(4))
-		self.nodes = set()
+		self.nodes = [] #changed that into a LIST
 		for x in xrange(node_count):
 			name_len = struct.unpack("B",soc.read(1))
 			name = soc.read(name_len)
@@ -29,7 +29,7 @@ class socdict:
 			host = soc.read(host_len)
 			port = struct.unpack(">H",soc.read(2))
 			last_seen_ts = struct.unpack(">I",soc.read(4))
-			self.nodes.add(node(host,name,port,last_seen_ts))
+			self.nodes.append(node(host,name,port,last_seen_ts))
 
 		start_blocks = struct.unpack(">I",soc.read(4))
 		block_count = struct.unpack(">I",soc.read(4))
@@ -46,14 +46,14 @@ class socdict:
 	#print(thingy.cmd) >> 1 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
 
-def handleSocNodes(soc)
-	soc = socdict(soc)
-	#for node in soc:
-		#if (node already exists in groupe) and (node.last_seen_ts is bigger than (node.last_seen_ts that is the same node)) :
+def handleSocNodes(sock)
+	soc = socdict(sock)
+	for node in soc.nodes:
+		if (node already exists in activeNodes) and (node.ts is bigger than (node.ts that has the same node)) :
 			#update node.last_seen_ts
 		#else:
-			#add node to activeNode (its a set)
-	#if soc.cmd is 1
+			activeNodes.append(node)
+	if soc.cmd is 1:
 		#send respond messege with cmd=2
 		
 		

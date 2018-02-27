@@ -2,7 +2,9 @@ import threading
 import Queue
 import socket
 import hashspeed
+import time
 
+activeNodes = {}
 
 class socdict:
 	def __init__(self,soc):

@@ -43,7 +43,7 @@ class socdict:
 			self.blocks[serial_number] = (wallet,prev_sig,puzzle,sig)
 	#Example:
 	#thingy = socdict(soc)
-	#print(thingy.cmd) >> 45 (a 4 byte number)
+	#print(thingy.cmd) >> 1 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
 
 def handleSocNodes(soc)

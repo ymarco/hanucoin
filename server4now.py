@@ -4,7 +4,7 @@ import socket
 import hashspeed
 import time
 
-activeNodes = {} #its a LIST
+activeNodes = {} #its a dict
 
 
 class node:
@@ -22,7 +22,8 @@ class socdict:
 		self.cmd = struct.unpack(">I",soc.recv(4))[0]
 		start_nodes = struct.unpack(">I",soc.recv(4))[0]
 		node_count = struct.unpack(">I",soc.recv(4))[0]
-		self.nodes = {} #changed that into a LIST
+
+		self.nodes = {} #its a dict
 		for x in xrange(node_count):
 			name_len = struct.unpack("B",soc.recv(1))[0]
 			name = soc.recv(name_len)

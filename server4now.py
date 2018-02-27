@@ -4,7 +4,7 @@ import socket
 import hashspeed
 import time
 
-activeNodes = [] #its a LIST
+activeNodes = {} #its a LIST
 
 class node:
 	def __init__(self,host,name,port,ts):
@@ -18,25 +18,25 @@ class node:
 class socdict:
 	def __init__(self,soc):
 
-		self.cmd = struct.unpack(">I",soc.read(4))
-		start_nodes = struct.unpack(">I",soc.read(4))
-		node_count = struct.unpack(">I",soc.read(4))
-		self.nodes = [] #changed that into a LIST
+		self.cmd = struct.unpack(">I",soc.read(4))[0]
+		start_nodes = struct.unpack(">I",soc.read(4))[0]
+		node_count = struct.unpack(">I",soc.read(4))[0]
+		self.nodes = {} #changed that into a LIST
 		for x in xrange(node_count):
-			name_len = struct.unpack("B",soc.read(1))
+			name_len = struct.unpack("B",soc.read(1))[0]
 			name = soc.read(name_len)
-			host_len = struct.unpack("B",soc.read(1))
+			host_len = struct.unpack("B",soc.read(1))[0]
 			host = soc.read(host_len)
-			port = struct.unpack(">H",soc.read(2))
-			last_seen_ts = struct.unpack(">I",soc.read(4))
-			self.nodes.append(node(host,name,port,last_seen_ts))
+			port = struct.unpack(">H",soc.read(2))[0]
+			last_seen_ts = struct.unpack(">I",soc.read(4))[0]
+			self.nodes[host+port]=node(host,name,port,last_seen_ts) #If two nodes have the same host and port one of them is unnecessary
 
-		start_blocks = struct.unpack(">I",soc.read(4))
-		block_count = struct.unpack(">I",soc.read(4))
+		start_blocks = struct.unpack(">I",soc.read(4))[0]
+		block_count = struct.unpack(">I",soc.read(4))[0]
 		self.blocks={}
 		for x in xrange(block_count):
-			serial_number = struct.unpack(">I",soc.read(4))
-			wallet = struct.unpack(">I",soc.read(4))
+			serial_number = struct.unpack(">I",soc.read(4))[0]
+			wallet = struct.unpack(">I",soc.read(4))[0]
 			prev_sig = soc.read(8)
 			puzzle = soc.read(4)
 			sig = soc.read(12)
@@ -48,11 +48,9 @@ class socdict:
 
 def handleSocNodes(sock)
 	soc = socdict(sock)
-	for node in soc.nodes:
-		if (node already exists in activeNodes) and (node.ts is bigger than (node.ts that has the same node)) :
-			#update node.last_seen_ts
-		#else:
-			activeNodes.append(node)
+	for adress in soc.nodes.iterkeys():
+		if (adress not in activeNodes.iterkeys()) or (activeNodes[adress].ts<soc.nodes[adress].ts):
+			activeNodes[adress]=soc.nodes[adress]
 	if soc.cmd is 1:
 		#send respond messege with cmd=2
 		

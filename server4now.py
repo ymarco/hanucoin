@@ -63,15 +63,15 @@ def createMessege(cmd_i):
 		
 	return cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blocks
 
-def handleSoc(sock):
+def updateBySock(sock):
+	global activeNodes,nodes_updated
 	soc = socdict(sock)
 	for adress in soc.nodes.iterkeys():
-		if (adress not in activeNodes.iterkeys()) or (activeNodes[adress].ts<soc.nodes[adress].ts<int(time.time())):
+		if adress not in activeNodes.iterkeys():
+			nodes_updated=True
 			activeNodes[adress]=soc.nodes[adress]
-	if soc.cmd == 1:
-		#send respond messege with cmd=2
-		soc.send(createMessage(2))
-		
+		elif activeNodes[adress].ts<soc.nodes[adress].ts<int(time.time()):
+			activeNodes[adress].ts=soc.nodes[adress].ts
 	
 
 #listen_socket is global
@@ -83,28 +83,21 @@ listen_socket.listen(1)
 g_queue = Queue.Queue()
 newSocs = []
 
-def AcceptLoop():
+def inputLoop():
    global g_newSocs
    while True:
-       soc, addr = listen_socket.accept()  # synchronous, blocking
-       g_queue.put(soc)
+       sock, addr = listen_socket.accept()  # synchronous, blocking
+       updateBySock(sock)
+       sock.send(createMessage(2))
+       sock.close()
 
 
-threading.Thread(target=AcceptLoop).start() 
+
+threading.Thread(target=inputLoop).start() 
 
 
 
 while True:
-	# soc is a new accepted socket
-	try:
-		sock = g_queue.get()
-
-
-	except Queue.Empty:
-		sock = None
-
-	for sock in newSocs:
-		handleSocNodes(sock)
 
 	#DoSomeCoinMining()
    

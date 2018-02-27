@@ -50,7 +50,7 @@ class socdict:
 
 def createMessege(cmd_i):
 	cmd = struct.pack(">I",cmd_i)
-	start_nodes = struct.pack(">I", 0xbeefbeed)
+	start_nodes = struct.pack(">I", 0xbeefbeef)
 	nodes_count = struct.pack(">I", len(activeNodes))
 
 	nodes = ''
@@ -63,7 +63,7 @@ def createMessege(cmd_i):
 		
 	return cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blocks
 
-def handleSocNodes(sock):
+def handleSoc(sock):
 	soc = socdict(sock)
 	for adress in soc.nodes.iterkeys():
 		if (adress not in activeNodes.iterkeys()) or (activeNodes[adress].ts<soc.nodes[adress].ts<int(time.time())):
@@ -105,6 +105,7 @@ while True:
 
 	for sock in newSocs:
 		handleSocNodes(sock)
+
 	#DoSomeCoinMining()
    
 	if int(time.time()) - timeBuffer >= 5*60 : #once every 5 min:

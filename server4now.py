@@ -23,7 +23,7 @@ class socdict:
 			self.nodes[host] = (name,port,last_seen_ts)
 
 		start_blocks = struct.unpack(">I",soc.read(4))
-		self.block_count = struct.unpack(">I",soc.read(4))
+		block_count = struct.unpack(">I",soc.read(4))
 		self.blocks={}
 		for x in xrange(block_count):
 			serial_number = struct.unpack(">I",soc.read(4))
@@ -32,8 +32,10 @@ class socdict:
 			puzzle = soc.read(4)
 			sig = soc.read(12)
 			self.blocks[serial_number] = (wallet,prev_sig,puzzle,sig)
-		
-
+	#Example:
+	#thingy=socdict(soc)
+	#print(thingy.cmd) >> 45 (a 4 byte number)
+	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
 
 #listen_socket is global
 TCP_IP = '127.0.0.1'

@@ -6,13 +6,22 @@ import time, datetime
 
 activeNodes = {}
 
+class node:
+	def __init__(self,host,name,port,ts):
+		self.host=host
+		self.name=name
+		self.port=port
+		self.ts=ts
+	def __eq__(self,other)
+	 return self.__dict__==other.__dict__
+
 class socdict:
 	def __init__(self,soc):
 
 		self.cmd = struct.unpack(">I",soc.read(4))
 		start_nodes = struct.unpack(">I",soc.read(4))
 		node_count = struct.unpack(">I",soc.read(4))
-		self.nodes = {}
+		self.nodes = set()
 		for x in xrange(node_count):
 			name_len = struct.unpack("B",soc.read(1))
 			name = soc.read(name_len)
@@ -20,7 +29,7 @@ class socdict:
 			host = soc.read(host_len)
 			port = struct.unpack(">H",soc.read(2))
 			last_seen_ts = struct.unpack(">I",soc.read(4))
-			self.nodes[host] = (host,name,port,last_seen_ts)
+			self.nodes.add(node(host,name,port,last_seen_ts))
 
 		start_blocks = struct.unpack(">I",soc.read(4))
 		block_count = struct.unpack(">I",soc.read(4))

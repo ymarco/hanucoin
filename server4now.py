@@ -1,11 +1,11 @@
-import threading
+int(time.time())import threading
 import Queue
 import socket
 import hashspeed
 import time
 
 activeNodes = {} #its a dict
-
+timeBuffer = int(time.time()) # it gets updated to current time every 5 min
 
 class node:
 	def __init__(self,host,name,port,ts):
@@ -94,19 +94,21 @@ threading.Thread(target=AcceptLoop).start()
 
 
 while True:
-   # soc is a new accepted socket
-   try:
-       soc = g_queue.get()
-       sockets.append(soc)  # add to list
-   except Queue.Empty:
-       soc = None
+	# soc is a new accepted socket
+	try:
+		soc = g_queue.get()
+		sockets.append(soc)  # add to list
+	except Queue.Empty:
+		soc = None
 
-   #handldeSocNodes(soc)
-   #DoSomeCoinMining()
+	#handldeSocNodes(soc)
+	#DoSomeCoinMining()
    
-   #once per 5 minutes:
+	if int(time.time()) timeBuffer >= 5*60 : #once every 5 min:
+		for adress in activeNodes.iterkeys():
+			if int(time.time())int(time.time()) - activeNodes[address][ts] >= 30*60 #the node wasnt seen in 30min:
+				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes 
+		
    
-   #for node in activeNodes:
-   	#if int(time.time()) - node.last_seen_ts >= 60*30:
-		#del activeNodes[node]
-   time.sleep(0.1)  # we dont want the laptop to hang.
+	
+time.sleep(0.1)  # we dont want the laptop to hang.

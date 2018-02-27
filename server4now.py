@@ -97,14 +97,14 @@ threading.Thread(target=AcceptLoop).start()
 while True:
 	# soc is a new accepted socket
 	try:
-		soc = g_queue.get()
-		newSocs.append(soc)  # add to list
+		sock = g_queue.get()
+
 
 	except Queue.Empty:
-		soc = None
+		sock = None
 
-	for soc in newSocs:
-		handleSocNodes(soc)
+	for sock in newSocs:
+		handleSocNodes(sock)
 	#DoSomeCoinMining()
    
 	if int(time.time()) - timeBuffer >= 5*60 : #once every 5 min:

@@ -6,6 +6,7 @@ import time
 
 activeNodes = [] #its a LIST
 
+
 class node:
 	def __init__(self,host,name,port,ts):
 		self.host=host
@@ -45,6 +46,15 @@ class socdict:
 	#thingy = socdict(soc)
 	#print(thingy.cmd) >> 1 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
+
+def sendMessege(cmd_i):
+	cmd = struct.pack(">I",cmd_1,0,0,0)
+	start_nodes = struct.pack(">I", 0xbeefbeed)
+	nodes_count = struct.pack(">I", len(activeNodes)
+	nodes = []
+	for node_i in activeNodes:
+		nodes_i
+
 
 def handleSocNodes(sock)
 	soc = socdict(sock)

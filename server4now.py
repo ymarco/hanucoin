@@ -63,11 +63,11 @@ def updateBySock(sock):
 	global activeNodes,nodes_updated
 	soc = socdict(sock)
 	for address,nod in soc.nodes.iteritems():
-		if currentTime-1800<nod.ts<=currentTime #If it's not a message from the future or from more than 30 minutes ago
+		if currentTime-1800<nod.ts<=currentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
 				nodes_updated=True
 				activeNodes[address]=nod
-			elif activeNodes[address].ts<nod.ts<int(time.time()):
+			elif activeNodes[address].ts<nod.ts: #elif prevents exceptions here (activeNodes[adress] exists)
 				activeNodes[address].ts=nod.ts
 
 #listen_socket is global
@@ -88,7 +88,7 @@ def inputLoop():
 
 threading.Thread(target=inputLoop).start() 
 
-out_socket = socket.socket(sockt.AF_INET,socket.SOCK_STREAM)
+out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 while True:
 
 	#DoSomeCoinMining()
@@ -102,6 +102,7 @@ while True:
 			out_socket.connect(address)
 			out_socket.send(createMessage(1))
 			updateBySock(out_socket)
+			out_socket.close()
 
 	"""DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():

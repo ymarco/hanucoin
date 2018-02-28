@@ -2,7 +2,7 @@ import threading,socket,hashspeed,time,Queue
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
-
+nodes_updated = False
 class node:
 	def __init__(self,host,name,port,ts):
 		self.host=host

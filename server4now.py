@@ -2,7 +2,7 @@ import threading, socket, hashspeed, time, Queue, struct
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
-nodes_updated = False
+nodes_updated = False 
 class node:
 	def __init__(self,host,port,name,ts):
 		self.host=host
@@ -13,23 +13,23 @@ class node:
 		return self.__dict__==other.__dict__
 
 def parseSocket(soc):
-	nodes={}
-	blocks=[]
-	cmd=soc.recv(2)
-	if soc.recv(4)!="\xbe\xef\xbe\xef" #start_nodes==0xbeefbeef:
-		raise Exception("Wrong start_nodes")
-	node_count=struct.unpack(">I",soc.recv(4))[0]
+	nodes = {} #dict
+	blocks = []
+	cmd = soc.recv(4)
+	if soc.recv(4) != "\xbe\xef\xbe\xef":#start_nodes==0xbeefbeef:
+		raise Exception("start_nodes aint 'beefbeef'")
+	node_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(node_count):
-		name_len=struct.unpack("B",soc.recv(1))[0]
-		name=soc.recv(name_len)
-		host_len=struct.unpack("B",soc.recv(1))[0]
-		host=soc.recv(host_len)
-		port=soc.recv(2)
-		last_seen_ts=soc.recv(4)
-		nodes[(host,port)]=(name,last_seen_ts)
-	if soc.recv(4)!="\xde\xad\xde\xad": #start_blocks!=0xdeaddead
-		raise Exception("Wrong start_blocks")
-	block_count=struct.unpack(">I",soc.recv(4))[0]
+		name_len = struct.unpack("B",soc.recv(1))[0]
+		name = soc.recv(name_len)
+		host_len = struct.unpack("B",soc.recv(1))[0]
+		host = soc.recv(host_len)
+		port = soc.recv(2)
+		last_seen_ts = soc.recv(4)
+		nodes[(host,port)] = (name,last_seen_ts)
+	if soc.recv(4) != "\xde\xad\xde\xad": #start_blocks!=0xdeaddead
+		raise Exception("start_blocks aint 'deaddead'")
+	block_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(block_count):
 		blocks.append(soc.recv(32))
 	soc.close()
@@ -41,10 +41,10 @@ def parseSocket(soc):
 	return struct.unpack(">I",cmd)[0],nodes,blocks
 
 class parsedmsg:
-	def __init__(self,cmd,nodes,blocks):
-		self.cmd=cmd
-		self.nodes=nodes
-		self.blocks=blocks
+	def __init__(self, cmd, nodes, blocks):
+		self.cmd = cmd
+		self.nodes = nodes
+		self.blocks = blocks
 
 	#Example:
 	#thingy = parsedmsg(soc)
@@ -52,12 +52,12 @@ class parsedmsg:
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)} #was it changed?
 
 def createMessege(cmd_i):
-	cmd = struct.pack(">I",cmd_i)
+	cmd = struct.pack(">I", cmd_i)
 	start_nodes = struct.pack(">I", 0xbeefbeef)
 	nodes_count = struct.pack(">I", len(activeNodes))
 
 	nodes = ''
-	for node in activeNodes.itervalues(): #python has issues with this line for some reason
+	for node in activeNodes.itervalues():
 		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 		
 	start_blocks = struct.pack(">I", 0xdeaddead)
@@ -68,14 +68,14 @@ def createMessege(cmd_i):
 
 def updateBySock(sock):
 	global activeNodes,nodes_updated
-	data=parsedmsg(parseSocket(sock))
-	for address,nod in data.nodes.iteritems():
-		if currentTime-1800 <nod.ts <=currentTime: #If it's not a message from the future or from more than 30 minutes ago
-			if address not in activeNodes.iterkeys():
-				nodes_updated=True
-				activeNodes[address]=nod
-			elif activeNodes[address].ts<nod.ts: #elif prevents exceptions here (activeNodes[adress] exists)
-				activeNodes[address].ts=nod.ts
+	data = parsedmsg(parseSocket(sock))
+	for address, nod in data.nodes.iteritems():
+		if currentTime - 30*60 < nod.ts <= currentTime: #If it's not a message from the future or from more than 30 minutes ago
+			if address not in activeNodes.iterkeys(): #Its a new node, lets add it
+				nodes_updated = True
+				activeNodes[address] = nod
+			elif activeNodes[address].ts < nod.ts: #elif prevents exceptions here (activeNodes[adress] exists - we already have this node)
+					activeNodes[address].ts = nod.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
 
 #listen_socket is global
 TCP_IP = '127.0.0.1'
@@ -94,17 +94,17 @@ def inputLoop():
 
 
 
-threading.Thread(target=inputLoop).start() 
+threading.Thread(target = inputLoop).start() 
 
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 while True:
 
 	#DoSomeCoinMining()
-	currentTime=int(time.time())
+	currentTime = int(time.time())
 	
-	if nodes_updated or currentTime - 5*60 >= timeBuffer: #once every 5 min:
-		timeBuffer=currentTime
-		nodes_updated=False
+	if nodes_updated or currentTime - 5*60 >= timeBuffer: #EVERY 5 MIN:
+		timeBuffer = currentTime
+		nodes_updated = False
 
 
 		for address in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 addresses

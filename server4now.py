@@ -4,7 +4,7 @@ activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
 nodes_updated = False
 class node:
-	def __init__(self,host,name,port,ts):
+	def __init__(self,host,port,name,ts):
 		self.host=host
 		self.name=name
 		self.port=port
@@ -12,35 +12,42 @@ class node:
 	def __eq__(self,other):
 		return self.__dict__==other.__dict__
 
-class socdict:
-	def __init__(self,soc):
+def parseSocket(soc):
+	nodes={}
+	blocks=[]
+	cmd=soc.recv(2)
+	if soc.recv(4)!="\xbe\xef\xbe\xef" #start_nodes==0xbeefbeef:
+		raise Exception("Wrong start_nodes")
+	node_count=struct.unpack(">I",soc.recv(4))[0]
+	for x in xrange(node_count):
+		name_len=struct.unpack("B",soc.recv(1))[0]
+		name=soc.recv(name_len)
+		host_len=struct.unpack("B",soc.recv(1))[0]
+		host=soc.recv(host_len)
+		port=soc.recv(2)
+		last_seen_ts=soc.recv(4)
+		nodes[(host,port)]=(name,last_seen_ts)
+	if soc.recv(4)!="\xde\xad\xde\xad": #start_blocks!=0xdeaddead
+		raise Exception("Wrong start_blocks")
+	block_count=struct.unpack(">I",soc.recv(4))[0]
+	for x in xrange(block_count):
+		blocks.append(soc.recv(32))
+	soc.close()
+	#Parse(blocks)
+	#Parse(nodes):
+	for address,tup in nodes:
+		nodes[address]=node(*(address+(tup[0],)+struct.unpack(">I",tup[1])))
 
-		self.cmd = struct.unpack(">I",soc.recv(4))[0]
-		start_nodes = struct.unpack(">I",soc.recv(4))[0]
-		node_count = struct.unpack(">I",soc.recv(4))[0]
+	return struct.unpack(">I",cmd)[0],nodes,blocks
 
-		self.nodes = {} #its a dict
-		for x in xrange(node_count):
-			name_len = struct.unpack("B",soc.recv(1))[0]
-			name = soc.recv(name_len)
-			host_len = struct.unpack("B",soc.recv(1))[0]
-			host = soc.recv(host_len)
-			port = struct.unpack(">H",soc.recv(2))[0]
-			last_seen_ts = struct.unpack(">I",soc.recv(4))[0]
-			self.nodes[(host,port)]=node(host,name,port,last_seen_ts) #If two nodes have the same host and port one of them is unnecessary
+class parsedmsg:
+	def __init__(self,cmd,nodes,blocks):
+		self.cmd=cmd
+		self.nodes=nodes
+		self.blocks=blocks
 
-		start_blocks = struct.unpack(">I",soc.recv(4))[0]
-		block_count = struct.unpack(">I",soc.recv(4))[0]
-		self.blocks={}
-		for x in xrange(block_count):
-			serial_number = struct.unpack(">I",soc.recv(4))[0]
-			wallet = struct.unpack(">I",soc.recv(4))[0]
-			prev_sig = soc.recv(8)
-			puzzle = soc.recv(4)
-			sig = soc.recv(12)
-			self.blocks[serial_number] = (wallet,prev_sig,puzzle,sig)
 	#Example:
-	#thingy = socdict(soc)
+	#thingy = parsedmsg(soc)
 	#print(thingy.cmd) >> 1 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)}
 
@@ -61,8 +68,8 @@ def createMessege(cmd_i):
 
 def updateBySock(sock):
 	global activeNodes,nodes_updated
-	soc = socdict(sock)
-	for address,nod in soc.nodes.iteritems():
+	data=parsedmsg(parseSocket(sock))
+	for address,nod in data.nodes.iteritems():
 		if currentTime-1800<nod.ts<=currentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
 				nodes_updated=True

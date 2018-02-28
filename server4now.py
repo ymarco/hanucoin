@@ -1,4 +1,4 @@
-import threading,socket,hashspeed,time,Queue, struct
+import threading, socket, hashspeed, time, Queue, struct
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
@@ -78,10 +78,10 @@ listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)
 
 def inputLoop():
-   while True:
+	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		updateBySock(sock)
-		print "data messege from" + addr
+		print "data message from" + addr
 		sock.send(createMessage(2))
 		sock.close()
 
@@ -93,7 +93,7 @@ out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 while True:
 
 	#DoSomeCoinMining()
-   	currentTime=int(time.time())
+	currentTime=int(time.time())
 	
 	if nodes_updated or currentTime - 5*60 >= timeBuffer: #once every 5 min:
 		timeBuffer=currentTime
@@ -106,9 +106,9 @@ while True:
 			updateBySock(out_socket)
 			out_socket.close()
 
-	#DELETE 30 MIN OLD NODES:
+		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
-			if currentTime - activeNodes[address][ts] >= 30*60 #the node wasnt seen in 30min:
+			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
 				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes
 		
    
@@ -116,4 +116,4 @@ while True:
 	time.sleep(0.1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
-	#it wont work, we need to hash something specific every time, and that specific something changes every time someone succeeds mining ~Marco
+	

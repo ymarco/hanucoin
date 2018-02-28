@@ -50,7 +50,7 @@ def createMessege(cmd_i):
 	nodes_count = struct.pack(">I", len(activeNodes))
 
 	nodes = ''
-	for node in activeNodes.itervalues() #python has issues with this line for some reason
+	for node in activeNodes.itervalues(): #python has issues with this line for some reason
 		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 		
 	start_blocks = struct.pack(">I", 0xdeaddead)

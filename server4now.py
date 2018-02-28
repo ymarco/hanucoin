@@ -113,3 +113,4 @@ while True:
 	time.sleep(0.1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' abillity
+	#it wont work, we need to hash something specific every time, and that specific something changes every time someone secceeds mining ~marco

@@ -1,4 +1,4 @@
-import threading,socket,hashspeed,time,Queue
+import threading,socket,hashspeed,time,Queue, struct
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
@@ -42,7 +42,7 @@ class socdict:
 	#Example:
 	#thingy = socdict(soc)
 	#print(thingy.cmd) >> 1 (a 4 byte number)
-	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)}
+	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)} #was it changed?
 
 def createMessege(cmd_i):
 	cmd = struct.pack(">I",cmd_i)
@@ -63,7 +63,7 @@ def updateBySock(sock):
 	global activeNodes,nodes_updated
 	soc = socdict(sock)
 	for address,nod in soc.nodes.iteritems():
-		if currentTime-1800<nod.ts<=currentTime: #If it's not a message from the future or from more than 30 minutes ago
+		if currentTime-1800 < nod.ts <= currentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
 				nodes_updated=True
 				activeNodes[address]=nod
@@ -79,10 +79,11 @@ listen_socket.listen(1)
 
 def inputLoop():
    while True:
-       sock, addr = listen_socket.accept()  # synchronous, blocking
-       updateBySock(sock)
-       sock.send(createMessage(2))
-       sock.close()
+		sock, addr = listen_socket.accept()  # synchronous, blocking
+		updateBySock(sock)
+		print "data messege from" + addr
+		sock.send(createMessage(2))
+		sock.close()
 
 
 
@@ -93,6 +94,7 @@ while True:
 
 	#DoSomeCoinMining()
    	currentTime=int(time.time())
+	
 	if nodes_updated or currentTime - 5*60 >= timeBuffer: #once every 5 min:
 		timeBuffer=currentTime
 		nodes_updated=False
@@ -104,10 +106,10 @@ while True:
 			updateBySock(out_socket)
 			out_socket.close()
 
-	"""DELETE 30 MIN OLD NODES:
+	#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
 			if currentTime - activeNodes[address][ts] >= 30*60 #the node wasnt seen in 30min:
-				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes"""
+				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes
 		
    
 	

@@ -1,8 +1,11 @@
-import threading, socket, hashspeed, time, Queue, struct
+import threading, socket, hashspeed, time, Queue, struct, random
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
-nodes_updated = False 
+nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
+START_NODES = struct.pack(">I", 0xbeefbeef)
+START_BLOCKS = struct.pack(">I", 0xdeaddead)
+
 class node:
 	def __init__(self,host,port,name,ts):
 		self.host=host
@@ -16,8 +19,8 @@ def parseSocket(soc):
 	nodes = {} #dict
 	blocks = []
 	cmd = soc.recv(4)
-	if soc.recv(4) != "\xbe\xef\xbe\xef":#start_nodes==0xbeefbeef:
-		raise Exception("start_nodes aint 'beefbeef'")
+	if soc.recv(4) != "\xbe\xef\xbe\xef":#start_nodes != 0xbeefbeef:
+		raise Exception("start_nodes isnt '0xbeefbeef'")
 	node_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(node_count):
 		name_len = struct.unpack("B",soc.recv(1))[0]
@@ -27,8 +30,8 @@ def parseSocket(soc):
 		port = soc.recv(2)
 		last_seen_ts = soc.recv(4)
 		nodes[(host,port)] = (name,last_seen_ts)
-	if soc.recv(4) != "\xde\xad\xde\xad": #start_blocks!=0xdeaddead
-		raise Exception("start_blocks aint 'deaddead'")
+	if soc.recv(4) != "\xde\xad\xde\xad": #start_blocks!= 0xdeaddead
+		raise Exception("start_blocks isnt '0xdeaddead'")
 	block_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(block_count):
 		blocks.append(soc.recv(32))
@@ -53,9 +56,7 @@ class parsedmsg:
 
 def createMessege(cmd_i):
 	cmd = struct.pack(">I", cmd_i)
-	start_nodes = struct.pack(">I", 0xbeefbeef)
-	nodes_count = struct.pack(">I", len(activeNodes))
-
+	
 	nodes = ''
 	for node in activeNodes.itervalues():
 		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
@@ -64,7 +65,7 @@ def createMessege(cmd_i):
 	block_count = struct.pack(">I", 0) # 0 for now, because
 	blocks = ''              		   #we don't mine for now	
 		
-	return cmd + start_nodes + nodes_count + nodes + start_blocks + block_count + blocks
+	return cmd + START_NODES + nodes_count + nodes + START_BLOCKS + block_count + blocks
 
 def updateBySock(sock):
 	global activeNodes,nodes_updated
@@ -84,32 +85,34 @@ listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)
 
+
 def inputLoop():
 	while True:
-		sock, addr = listen_socket.accept()  # synchronous, blocking
+		sock, addr = listen_socket.accept() #blocking
+		#we need to do something with recv here, dont we?
 		updateBySock(sock)
-		print "data message from" + addr
-		sock.sendall(createMessage(2))
-		sock.close()
+		print "got a message from" + addr
+		sock.sendall(createMessage(2)) #blocking
+		sock.close() #we are done with it
 
 
 
 threading.Thread(target = inputLoop).start() 
 
-out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) #its the socket that we send every 5 min, to 3 random nodes
 while True:
 
 	#DoSomeCoinMining()
 	currentTime = int(time.time())
 	
 	if nodes_updated or currentTime - 5*60 >= timeBuffer: #EVERY 5 MIN:
-		timeBuffer = currentTime
+		timeBuffer = currentTime 
 		nodes_updated = False
 
 
 		for address in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 addresses
 			out_socket.connect(address)
-			out_socket.send(createMessage(1))
+			out_socket.send(createMessage(1)) #we'll need to create a non-blocking loop for that when messeges get long, *or a new thread*
 			updateBySock(out_socket)
 			out_socket.close()
 

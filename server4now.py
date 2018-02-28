@@ -42,7 +42,7 @@ class socdict:
 	#Example:
 	#thingy = socdict(soc)
 	#print(thingy.cmd) >> 1 (a 4 byte number)
-	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1),...}
+	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)}
 
 def createMessege(cmd_i):
 	cmd = struct.pack(">I",cmd_i)
@@ -50,12 +50,12 @@ def createMessege(cmd_i):
 	nodes_count = struct.pack(">I", len(activeNodes))
 
 	nodes = ''
-	for node in activeNodes.itervalues() 	#preparing NODES
+	for node in activeNodes.itervalues() #python has issues with this line for some reason
 		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 		
 	start_blocks = struct.pack(">I", 0xdeaddead)
-	block_count = struct.pack(">I", 0) # 0 for now
-	blocks = ''              #we dont mine for now	
+	block_count = struct.pack(">I", 0) # 0 for now, because
+	blocks = ''              		   #we don't mine for now	
 		
 	return cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blocks
 
@@ -97,6 +97,7 @@ while True:
 		timeBuffer=currentTime
 		nodes_updated=False
 
+
 		for address in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 addresses
 			out_socket.connect(address)
 			out_socket.send(createMessage(1))
@@ -111,4 +112,5 @@ while True:
 	
 	time.sleep(0.1)  # we dont want the laptop to hang.
 
-	#IDEA: mine coins with an iterator for 'freezing' abillity
+	#IDEA: mine coins with an iterator for 'freezing' ability
+	#it wont work, we need to hash something specific every time, and that specific something changes every time someone succeeds mining ~Marco

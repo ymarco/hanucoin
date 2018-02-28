@@ -50,14 +50,14 @@ def createMessege(cmd_i):
 	nodes_count = struct.pack(">I", len(activeNodes))
 
 	nodes = ''
-	for node in activeNodes.itervalues() #python has issues with this line for some reason
+	for node in activeNodes.itervalues(): #python has issues with this line for some reason
 		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 		
 	start_blocks = struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now, because
 	blocks = ''              		   #we don't mine for now	
 		
-	return cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blocks
+	return cmd + start_nodes + nodes_count + nodes + start_blocks + block_count + blocks
 
 def updateBySock(sock):
 	global activeNodes,nodes_updated

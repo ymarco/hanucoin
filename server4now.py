@@ -82,7 +82,7 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		updateBySock(sock)
 		print "data message from" + addr
-		sock.send(createMessage(2))
+		sock.sendall(createMessage(2))
 		sock.close()
 
 

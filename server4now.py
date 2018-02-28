@@ -8,12 +8,12 @@ START_BLOCKS = struct.pack(">I", 0xdeaddead)
 
 class node:
 	def __init__(self,host,port,name,ts):
-		self.host=host
-		self.name=name
-		self.port=port
-		self.ts=ts
+		self.host = host
+		self.name = name
+		self.port = port
+		self.ts = ts
 	def __eq__(self,other):
-		return self.__dict__==other.__dict__
+		return self.__dict__ == other.__dict__
 
 def parseSocket(soc):
 	nodes = {} #dict
@@ -102,7 +102,7 @@ threading.Thread(target = inputLoop).start()
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) #its the socket that we send every 5 min, to 3 random nodes
 while True:
 
-	#DoSomeCoinMining()
+	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
 	
 	if nodes_updated or currentTime - 5*60 >= timeBuffer: #EVERY 5 MIN:

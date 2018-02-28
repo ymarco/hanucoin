@@ -62,13 +62,13 @@ def createMessege(cmd_i):
 def updateBySock(sock):
 	global activeNodes,nodes_updated
 	soc = socdict(sock)
-	for adress,nod in soc.nodes.iteritems():
+	for address,nod in soc.nodes.iteritems():
 		if currentTime-1800<nod.ts<=currentTime #If it's not a message from the future or from more than 30 minutes ago
-			if adress not in activeNodes.iterkeys():
+			if address not in activeNodes.iterkeys():
 				nodes_updated=True
-				activeNodes[adress]=nod
-			elif activeNodes[adress].ts<nod.ts<int(time.time()):
-				activeNodes[adress].ts=nod.ts
+				activeNodes[address]=nod
+			elif activeNodes[address].ts<nod.ts<int(time.time()):
+				activeNodes[address].ts=nod.ts
 
 #listen_socket is global
 TCP_IP = '127.0.0.1'
@@ -76,7 +76,6 @@ TCP_PORT = 8089
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
 listen_socket.listen(1)
-g_queue = Queue.Queue()
 
 def inputLoop():
    while True:
@@ -98,13 +97,13 @@ while True:
 		timeBuffer=currentTime
 		nodes_updated=False
 
-		for adress in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 adresses
-			out_socket.connect(adress)
+		for address in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 addresses
+			out_socket.connect(address)
 			out_socket.send(createMessage(1))
 			updateBySock(out_socket)
 
 	"""DELETE 30 MIN OLD NODES:
-		for adress in activeNodes.iterkeys():
+		for address in activeNodes.iterkeys():
 			if currentTime - activeNodes[address][ts] >= 30*60 #the node wasnt seen in 30min:
 				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes"""
 		

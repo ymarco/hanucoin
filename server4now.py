@@ -57,13 +57,13 @@ def createMessege(cmd_i):
 	block_count = struct.pack(">I", 0) # 0 for now, because
 	blocks = ''              		   #we don't mine for now	
 		
-	return cmd + start_nodes + nodes_count + nodes + start_blocks + block count + blocks
+	return cmd + start_nodes + nodes_count + nodes + start_blocks + block_count + blocks
 
 def updateBySock(sock):
 	global activeNodes,nodes_updated
 	soc = socdict(sock)
 	for address,nod in soc.nodes.iteritems():
-		if currentTime-1800<nod.ts<=currentTime #If it's not a message from the future or from more than 30 minutes ago
+		if currentTime-1800<nod.ts<=currentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
 				nodes_updated=True
 				activeNodes[address]=nod

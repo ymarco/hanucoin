@@ -3,4 +3,5 @@
 test*
 *.pyc
 cd ..
-ign*
+*ign*
+*IGN*

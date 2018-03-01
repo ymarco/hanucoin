@@ -148,6 +148,8 @@ while True:
 	if currentTime - 5*60 >= periodicalBuffer:
 		backupwrite.write(createMessage(1))
 		periodicalBuffer=currentTime
+
+
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False
@@ -179,4 +181,3 @@ while True:
 	time.sleep(0.1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
-	

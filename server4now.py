@@ -48,7 +48,7 @@ def parseMsg(msg):
 	cmd = struct.unpack(">I",msg.cut(4))[0]
 
 	if msg.cut(4) != START_NODES #start_nodes!=0xbeefbeef:
-		raise TypeError("Wrong start_nodes")
+		raise ValueError("Wrong start_nodes")
 
 	node_count = struct.unpack(">I",msg.cut(1))[0]
 	for x in xrange(node_count):
@@ -57,12 +57,11 @@ def parseMsg(msg):
 		host_len=struct.unpack("B",msg.cut(1))[0]
 		host=msg.cut(host_len)
 		port=struct.unpack(">H",msg.cut(2))[0]
-		last_seen_ts=struct.unpack(">I",msg.cut(4))[0]
-		nodes[(host,port)]=node(host,port,name,last_seen_ts)
+		ts=struct.unpack(">I",msg.cut(4))[0]
+		nodes[(host,port)]=node(host,port,name,ts)
 
 	if msg.cut(4) != START_BLOCKS: #start_blocks!=0xdeaddead
-		raise TypeError("Wrong start_blocks")
-
+		raise ValueError("Wrong start_blocks")
 	block_count=struct.unpack(">I",msg.cut(4))[0]
 	for x in xrange(block_count):
 		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
@@ -92,12 +91,12 @@ def createMessege(cmd_i):
 def updateByNodes(nodes):
 	global activeNodes,nodes_updated
 	for address,nod in nodes.iteritems():
-		if currentTime-1800 <nod.ts <=currentTime: #If it's not a message from the future or from more than 30 minutes ago
+		if currentTime - 1800 <nod.ts <=c urrentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
-				nodes_updated=True
-				activeNodes[address]=nod
-			elif activeNodes[address].ts<nod.ts: #elif prevents exceptions here (activeNodes[address] exists)
-				activeNodes[address].ts=nod.ts
+				nodes_updated = True
+				activeNodes[address] = nod
+			elif activeNodes[address].ts < nod.ts: #elif prevents exceptions here (activeNodes[address] exists)
+				activeNodes[address].ts = nod.ts
 
 #listen_socket is global
 
@@ -144,7 +143,7 @@ def inputLoop():
 
 		except Exception as expt:
 			print "[inputLoop]: got a message from: " + str(addr)
-			print '[inputLoop]: Error: "' + str(expt) +'"' *************THIS WILL BE MERGED LATER*************"""
+			print '[inputLoop]: Error: "' + str(expt) +'"' *************THIS WILL BE MERGED LATER************* """
 
 
 
@@ -168,8 +167,8 @@ while True:
 			out_socket.sendall(createMessage(1))
 			print "Sent message to:" + address[0]+str(address[1])
 			out_socket.shutdown(1) #Finished sending, now listening
-			msg=sock.recv(1024)
-			if msg != "": #Can potentialy be changed into (if msg == "": raise something)
+			msg = sock.recv(1024)
+			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 			cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			out_socket.shutdown(2)

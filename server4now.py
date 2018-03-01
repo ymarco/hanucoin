@@ -143,9 +143,9 @@ def inputLoop():
 			#updateByBlocks(blocks)
 			sock.sendall(createMessage(2))
 		except socket.timeout as err:
-			print '[inputLoop]: socket.timeout:"' + str(err) + '"'
+			print '[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
 		except socket.error as err:
-			print '[InputLoop]: socket.error:"' + str(err) + '"'
+			print '[inputLoop]: socket.error while connected to {}, error: "{}"'.format(addr, err)
 		else:
 			print "[InputLoop]: reply sent successfuly"
 		finally:
@@ -168,7 +168,7 @@ while True:
 		periodicalBuffer = currentTime
 		SELF_NODE.ts = currentTime
 
-	if nodes_updated or currentTime - 2 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
+	if nodes_updated or currentTime - 2 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False
 		print "sending event has started!"
@@ -177,17 +177,20 @@ while True:
 			try:
 				out_socket.connect(address)
 				out_socket.sendall(createMessage(1))
-				print "Sent message to:" + address[0]+str(address[1])
-				#out_socket.shutdown(1) #Finished sending, now listening
-				msg = sock.recv(1<<20)
+				print "[5 min message sends]: Sent a message to: " + str(address)
+				#out_socket.shutdown(1) Finished sending, now listening
+				msg = out_socket.recv(1<<20)
+				out_socket.shutdown(2)
 				if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 					cmd,nodes,blocks = parseMsg(msg)
-				#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
-				updateByNodes(nodes)
-				#updateByBlocks(blocks) #we dont do blocks for now
-			#except socket.timeout:
+					#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
+					updateByNodes(nodes)
+					#updateByBlocks(blocks) #we dont do blocks for now
 			except socket.error as err:
-				#YOAV YOUR TURN
+				print '[5 min message sends]: socket.error while sending to {}, error: "{}"'.format(str(address), str(err))
+			except socket.timeout as err:
+				print '[5 min message sends]: socket.timeout: while sending to {}, error: "{}"'.format(str(address, str(err)))
+
 			finally:
 				out_socket.shutdown(2)
 				out_socket.close()

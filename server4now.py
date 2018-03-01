@@ -32,6 +32,8 @@ class node:
 	def __eq__(self,other):
 		return self.__dict__ == other.__dict__
 
+SELF_NODE=node(SELF_IP,TCP_PORT,"Lead",int(time.time()))
+
 class cutstr:
 	def __init__(self,string):
 		self.string=string
@@ -86,12 +88,16 @@ def parseMsg(msg):
 
 def createMessage(cmd_i):
 	global START_NODES, START_BLOCKS
+	
 	cmd = struct.pack(">I", cmd_i)
-	nodes_count=struct.pack(">I",len(activeNodes)+1)
+
+	nodes_count=struct.pack(">I",len(activeNodes)+1)	
 	nodes = ''
 	for node in activeNodes.itervalues():
-		nodes += struct.pack(">B",len(node.name)) + node.name + struct.pack(">B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
-		
+		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
+
+	nodes+=struct.pack("B",4) + "Lead" + struct.pack("B",len(SELF_IP)) + SELF_IP + struct.pack(">H",TCP_PORT) + struct.pack(">I", SELF_NODE.ts) #Add our port
+
 	start_blocks= struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now, because
 	blocks 		= ''              		   #we don't mine for now	
@@ -155,8 +161,9 @@ while True:
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer:
 		backupwrite.write(createMessage(1))
-		periodicalBuffer=currentTime
 
+		periodicalBuffer=currentTime
+		SELF_NODE.ts=currentTime
 
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer

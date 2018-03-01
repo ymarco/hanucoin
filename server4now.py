@@ -188,7 +188,7 @@ while True:
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
 			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
-				print "Deleted: " + str(activeNodes[address]) +" as it wasnt seen in 30 min"
+				print "Deleted: " + str(activeNodes[address]) + " as it wasnt seen in 30 min"
 				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())

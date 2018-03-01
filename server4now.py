@@ -1,8 +1,11 @@
 import threading, socket, hashspeed, time, Queue, struct, random, sys
 
 TCP_IP = ''
-TCP_PORT = int(sys.argv[1])
-
+try:
+	TCP_PORT = int(sys.argv[1])
+except IndexError:
+	TCP_PORT=8089
+	
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
@@ -34,10 +37,11 @@ class cutstr:
 		return len(self.string)
 
 	def cut(self,bytes):
-		if bytes > len(self):
-			raise IndexError("String is too short for cutting by " + bytes " bytes.")
-		piece = self.string[:bytes]
-		self.string = self.string[bytes:]
+		if bytes>len(self):
+			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
+		
+		piece=self.string[:bytes]
+		self.string=self.string[bytes:]
 		return piece
 
 
@@ -47,7 +51,7 @@ def parseMsg(msg):
 	blocks=[]
 	cmd = struct.unpack(">I",msg.cut(4))[0]
 
-	if msg.cut(4) != START_NODES #start_nodes!=0xbeefbeef:
+	if msg.cut(4) != START_NODES: #start_nodes!=0xbeefbeef
 		raise ValueError("Wrong start_nodes")
 
 	node_count = struct.unpack(">I",msg.cut(1))[0]
@@ -91,7 +95,7 @@ def createMessege(cmd_i):
 def updateByNodes(nodes):
 	global activeNodes,nodes_updated
 	for address,nod in nodes.iteritems():
-		if currentTime - 1800 <nod.ts <=c urrentTime: #If it's not a message from the future or from more than 30 minutes ago
+		if currentTime - 1800 <nod.ts <=currentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
 				nodes_updated = True
 				activeNodes[address] = nod
@@ -166,8 +170,8 @@ while True:
 			print "Sent message to:" + address[0]+str(address[1])
 			out_socket.shutdown(1) #Finished sending, now listening
 			msg = sock.recv(1024)
-			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg ~Marco
-			cmd,nodes,blocks = parseMsg(msg)
+			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
+				cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			out_socket.shutdown(2)
 			out_socket.close()

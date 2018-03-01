@@ -168,26 +168,29 @@ while True:
 		periodicalBuffer = currentTime
 		SELF_NODE.ts = currentTime
 
-	if nodes_updated or currentTime - 5*60 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
+	if nodes_updated or currentTime - 2 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False
-		print "5 min events have started!"
+		print "sending event has started!"
 
 		for address in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses
-			out_socket.connect(address)
-
-			out_socket.sendall(createMessage(1))
-			print "Sent message to:" + address[0]+str(address[1])
-			#out_socket.shutdown(1) #Finished sending, now listening
-			msg = sock.recv(1<<20)
-			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
-				cmd,nodes,blocks = parseMsg(msg)
-			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
-			out_socket.shutdown(2)
-			out_socket.close()
-			updateByNodes(nodes)
-			#updateByBlocks(blocks) #we dont do blocks for now
-
+			try:
+				out_socket.connect(address)
+				out_socket.sendall(createMessage(1))
+				print "Sent message to:" + address[0]+str(address[1])
+				#out_socket.shutdown(1) #Finished sending, now listening
+				msg = sock.recv(1<<20)
+				if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
+					cmd,nodes,blocks = parseMsg(msg)
+				#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
+				updateByNodes(nodes)
+				#updateByBlocks(blocks) #we dont do blocks for now
+			#except socket.timeout:
+			except socket.error as err:
+				#YOAV YOUR TURN
+			finally:
+				out_socket.shutdown(2)
+				out_socket.close()
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
 			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
@@ -195,7 +198,8 @@ while True:
 				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())
-	
+	print "main loop ended"
 	time.sleep(0.1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
+print "main thread ended"

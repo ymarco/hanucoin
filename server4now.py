@@ -14,8 +14,7 @@ try:
 except IndexError:
 	pass
 
-sendBuffer = int(time.time())
-periodicalBuffer=int(time.time())
+periodicalBuffer = sendBuffer = int(time.time())
 
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
 START_NODES = struct.pack(">I", 0xbeefbeef)
@@ -29,8 +28,8 @@ backup=open("backup.bin","r+b")
 class node:
 	def __init__(self,host,port,name,ts):
 		self.host = host
-		self.name = name
 		self.port = port
+		self.name = name
 		self.ts = ts
 	def __eq__(self,other):
 		return self.__dict__ == other.__dict__
@@ -100,7 +99,7 @@ def createMessage(cmd_i):
 	for node in activeNodes.itervalues():
 		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 
-	nodes+=struct.pack("B",4) + "Lead" + struct.pack("B",len(SELF_IP)) + SELF_IP + struct.pack(">H",TCP_PORT) + struct.pack(">I", SELF_NODE.ts) #Add our port
+	nodes+=struct.pack("B",4) + "Lead" + struct.pack("B",len(SELF_IP)) + SELF_IP + struct.pack(">H",TCP_PORT) + struct.pack(">I", SELF_NODE.ts) #Add our node
 
 	start_blocks= struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now, because
@@ -145,7 +144,7 @@ def inputLoop():
 		except socket.timeout as err:
 			print '[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
 		except socket.error as err:
-			print '[inputLoop]: socket.error while connected to {}, error: "{}"'.format(addr, err)
+			print '[inputLoop]: socket.error while connected to {}, error: "{}"'.format(addr, err) #Select will be added later
 		else:
 			print "[InputLoop]: reply sent successfuly"
 		finally:
@@ -186,18 +185,17 @@ while True:
 					#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 					updateByNodes(nodes)
 					#updateByBlocks(blocks) #we dont do blocks for now
-			except socket.error as err:
-				print '[5 min message sends]: socket.error while sending to {}, error: "{}"'.format(str(address), str(err))
 			except socket.timeout as err:
-				print '[5 min message sends]: socket.timeout: while sending to {}, error: "{}"'.format(str(address, str(err)))
-
+				print '[5 min message sends]: socket.timeout: while sending to {}, error: "{}"'.format(address[0]+":"+str(adress[1]), str(err))
+			except socket.error as err:
+				print '[5 min message sends]: socket.error while sending to {}, error: "{}"'.format(address[0]+":"+str(adress[1]), str(err))
 			finally:
 				out_socket.shutdown(2)
 				out_socket.close()
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
 			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
-				print "Deleted: " + str(activeNodes[address]) + " as it wasnt seen in 30 min"
+				print "Deleted: " + adress[0]+":"+str(adress[1]) + "'s node as it wasn't seen in 30 min"
 				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())

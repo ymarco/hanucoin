@@ -82,7 +82,7 @@ def updateBySock(sock):
 					activeNodes[address].ts = nod.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
 
 #listen_socket is global
-TCP_IP = '127.0.0.1'
+TCP_IP = ''
 TCP_PORT = 8089
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
@@ -97,6 +97,7 @@ def inputLoop():
 			updateBySock(sock)
 			print "[inputLoop]: got a message from: " +  str(addr)
 			sock.sendall(createMessage(2)) #blocking
+			print "[inputLoop]: reply sent succesfully"
 			
 		except Exception as expt:
 			print "[inputLoop]: got a message from: " + str(addr)

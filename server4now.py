@@ -54,7 +54,7 @@ def parseMsg(msg):
 	if msg.cut(4) != START_NODES: #start_nodes!=0xbeefbeef
 		raise ValueError("Wrong start_nodes")
 
-	node_count = struct.unpack(">I",msg.cut(1))[0]
+	node_count = struct.unpack(">I",msg.cut(4))[0]
 	for x in xrange(node_count):
 		name_len=struct.unpack("B",msg.cut(1))[0]
 		name 	=msg.cut(name_len)
@@ -67,7 +67,9 @@ def parseMsg(msg):
 	if msg.cut(4) != START_BLOCKS: #start_blocks!=0xdeaddead
 		raise ValueError("Wrong start_blocks")
 	block_count=struct.unpack(">I",msg.cut(4))[0]
+	print block_count
 	for x in xrange(block_count):
+		print x
 		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	return cmd ,nodes, blocks
 
@@ -124,7 +126,7 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print "[inputLoop]: got a message from: " + addr[0] + ":" + str(addr[1])
 		try:	
-			msg = sock.recv(1024)
+			msg = sock.recv(1<<20)
 			if msg == "":
 				raise ValueError(addr + "has sent an empty str")
 			cmd,nodes,blocks = parseMsg(msg)
@@ -162,7 +164,7 @@ while True:
 			out_socket.sendall(createMessage(1))
 			print "Sent message to:" + address[0]+str(address[1])
 			#out_socket.shutdown(1) #Finished sending, now listening
-			msg = sock.recv(1024)
+			msg = sock.recv(1<<20)
 			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 				cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except

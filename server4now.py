@@ -20,38 +20,51 @@ class node:
 	def __eq__(self,other):
 		return self.__dict__ == other.__dict__
 
+class cutstr:
+	def __init__(self,string):
+		self.string=string
 
-def cut(string,bytes):
-	piece = string[:bytes]
-	string = [bytes:]
-	return piece
+	def __repr__(self):
+		return "cutstr object:"+repr(self.string)
 
-def parseMsg(msg): #Needs to be changed into a string data processing function rather than real time processing one. *maybe
-	global START_NODES, START_BLOCKS
-	nodes = {}
-	blocks = []
-	cmd = struct.unpack(">I",cut(msg,4))[0]
+	def __eq__(self,other):
+		return other==self.string
 
-	if cut(msg,4) != START_NODES #start_nodes!=0xbeefbeef:
-		raise TypeError("Wrong start_nodes")
+	def __len__(self):
+		return len(self.string)
 
-	node_count 	= struct.unpack(">I",cut(msg,4))[0]
+	def cut(self,bytes):
+		if bytes>len(self):
+			raise IndexError("String too short for cutting by " + bytes " bytes.")
+		piece=self.string[:bytes]
+		self.string=self.string[bytes:]
+		return piece
+
+
+def parseMsg(msg):
+	msg=cutstr(msg)
+	nodes={}
+	blocks=[]
+	cmd = struct.unpack(">I",msg.cut(4))[0]
+
+	if msg.cut(4) != START_NODES #start_nodes!=0xbeefbeef:
+		raise ValueError("Wrong start_nodes")
+
+	node_count = struct.unpack(">I",msg.cut(1))[0]
 	for x in xrange(node_count):
-		name_len=struct.unpack(">B",cut(msg,1))[0]
-		name 	=cut(msg,name_len)
-		host_len=struct.unpack(">B",cut(msg,1))[0]
-		host 	=cut(msg,host_len)
-		port 	=struct.unpack(">H",cut(msg,2))[0]
-		ts 		=struct.unpack(">I",cut(msg,4))[0]
+		name_len=struct.unpack("B",msg.cut(1))[0]
+		name=msg.cut(name_len)
+		host_len=struct.unpack("B",msg.cut(1))[0]
+		host=msg.cut(host_len)
+		port=struct.unpack(">H",msg.cut(2))[0]
+		ts=struct.unpack(">I",msg.cut(4))[0]
 		nodes[(host,port)]=node(host,port,name,ts)
 
-	if cut(msg,4) != START_BLOCKS: #start_blocks!=0xdeaddead
-		raise TypeError("Wrong start_blocks")
-	block_count = struct.unpack(">I",cut(msg,4))[0]
-
+	if msg.cut(4) != START_BLOCKS: #start_blocks!=0xdeaddead
+		raise ValueError("Wrong start_blocks")
+	block_count=struct.unpack(">I",msg.cut(4))[0]
 	for x in xrange(block_count):
-		blocks.append(cut(msg,32)) #NEEDS CHANGES AT THE LATER STEP
-
+		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	return cmd ,nodes, blocks
 
 
@@ -108,15 +121,21 @@ def inputLoop():
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print "data message from:", addr
-		msg=sock.recv(1024)
-		cmd,nodes,blocks = parseMsg(msg)
-		#if cmd!=1: raise ValueError("cmd=1 in input functuon!") | will be handled later with try,except
-		updateByNodes(nodes)
-		#updateByBlocks(blocks)
-		sock.sendall(createMessage(2))
-		sock.shutdown(2)
-		sock.close()
-		"""		try:
+		try:	
+			msg=sock.recv(1024)
+			if msg == "":
+				raise ValueError(addr+" won't send any data")
+			cmd,nodes,blocks = parseMsg(msg)
+			#if cmd!=1: raise ValueError("cmd=1 in input functuon!") | will be handled later with try,except
+			updateByNodes(nodes)
+			#updateByBlocks(blocks)
+			sock.sendall(createMessage(2))
+			sock.shutdown(2)
+			sock.close()
+		#except socket.timeout:
+		except socket.error as err:
+
+			"""		try:
 			updateBySock(sock)
 			print "[inputLoop]: got a message from: " +  str(addr)
 			sock.sendall(createMessage(2)) #blocking

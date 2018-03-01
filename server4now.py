@@ -18,7 +18,8 @@ except IndexError:
 
 periodicalBuffer = sendBuffer = int(time.time())
 #DEBUG: *******************
-periodicalBuffer -= 5*60
+periodicalBuffer -= (4*60+0.4*60)
+sendBuffer -= (4*60+0.6*60)
 #************************
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
 START_NODES = struct.pack(">I", 0xbeefbeef)
@@ -161,6 +162,7 @@ while True:
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer:
+		print "file writing even has started@"
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
 		backup.truncate() #delete anything left from the previous file
@@ -200,7 +202,6 @@ while True:
 				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())
-	print "main loop ended"
 	time.sleep(1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability

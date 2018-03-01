@@ -57,11 +57,11 @@ def parseMsg(msg):
 	node_count = struct.unpack(">I",msg.cut(1))[0]
 	for x in xrange(node_count):
 		name_len=struct.unpack("B",msg.cut(1))[0]
-		name=msg.cut(name_len)
+		name 	=msg.cut(name_len)
 		host_len=struct.unpack("B",msg.cut(1))[0]
-		host=msg.cut(host_len)
-		port=struct.unpack(">H",msg.cut(2))[0]
-		ts=struct.unpack(">I",msg.cut(4))[0]
+		host 	=msg.cut(host_len)
+		port 	=struct.unpack(">H",msg.cut(2))[0]
+		ts 		=struct.unpack(">I",msg.cut(4))[0]
 		nodes[(host,port)]=node(host,port,name,ts)
 
 	if msg.cut(4) != START_BLOCKS: #start_blocks!=0xdeaddead
@@ -85,9 +85,9 @@ def createMessege(cmd_i):
 	for node in activeNodes.itervalues():
 		nodes += struct.pack(">B",len(node.name)) + node.name + struct.pack(">B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 		
-	start_blocks = struct.pack(">I", 0xdeaddead)
+	start_blocks= struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now, because
-	blocks = ''              		   #we don't mine for now	
+	blocks 		= ''              		   #we don't mine for now	
 		
 	return cmd + START_NODES + nodes_count + nodes + START_BLOCKS + block_count + blocks
 
@@ -101,8 +101,6 @@ def updateByNodes(nodes):
 				activeNodes[address] = nod
 			elif activeNodes[address].ts < nod.ts: #elif prevents exceptions here (activeNodes[address] exists)
 				activeNodes[address].ts = nod.ts
-
-#listen_socket is global
 
 
 def updateByNodes(nodes):
@@ -128,7 +126,7 @@ def inputLoop():
 		try:	
 			msg = sock.recv(1024)
 			if msg == "":
-				raise ValueError(addr+" won't send any data")
+				raise ValueError(addr + "has sent an empty str")
 			cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=1: raise ValueError("cmd=1 in input functuon!") | will be handled later with try,except
 			updateByNodes(nodes)

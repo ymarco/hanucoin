@@ -21,7 +21,7 @@ nodes_updated = False #goes True when we find a new node, then turns back off - 
 START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
 
-backup=open("backup.bin","r+b")
+backup=open("backup.bin","rb")
 #socket.setdefaulttimeout(60)
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
@@ -125,7 +125,7 @@ backup.close()
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-listen_socket.bind(('', TCP_PORT))
+listen_socket.bind(('', TCP_PORT)) #crashes the file. why?
 
 
 def inputLoop():
@@ -161,7 +161,8 @@ while True:
 
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
-	if currentTime - 5*60 >= periodicalBuffer:
+
+	if currentTime - 5*60 >= periodicalBuffer: #every 5 min:
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
 		backup.truncate() #delete anything left from the previous file

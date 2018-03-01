@@ -20,6 +20,9 @@ periodicalBuffer=int(time.time())
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
 START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
+
+backup=open("backup.bin","r+b")
+#socket.setdefaulttimeout(60)
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
 
@@ -116,10 +119,9 @@ def updateByNodes(nodes):
 			elif activeNodes[address].ts < node.ts: #elif prevents exceptions here (activeNodes[address] exists - we already have this node)
 					activeNodes[address].ts = node.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
 
-backupread=open("backup.bin","rb")
 
-_,activeNodes,__=parseMsg(backupread.read()) #get nodes from init file (backup.bin)
-backupread.close()
+_,activeNodes,__=parseMsg(backup.read()) #get nodes from init file (backup.bin)
+backup.close()
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -132,7 +134,7 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print "[inputLoop]: got a message from: " + addr[0] + ":" + str(addr[1])
 		try:	
-			msg = sock.recv(1<<20)
+			msg = sock.recv(1<<20) #Mega byte
 			if msg == "":
 				raise ValueError(addr + "has sent an empty str")
 			cmd,nodes,blocks = parseMsg(msg)
@@ -140,9 +142,10 @@ def inputLoop():
 			updateByNodes(nodes)
 			#updateByBlocks(blocks)
 			sock.sendall(createMessage(2))
-		#except socket.timeout:
+		except socket.timeout as err:
+			print '[inputLoop]: socket.timeout:"' + str(err) + '"'
 		except socket.error as err:
-			print '[InputLoop]: socket.error:"' + str(err) +'"'
+			print '[InputLoop]: socket.error:"' + str(err) + '"'
 		else:
 			print "[InputLoop]: reply sent successfuly"
 		finally:
@@ -153,15 +156,15 @@ def inputLoop():
 threading.Thread(target = inputLoop).start() 
 
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) #its the socket that we send every 5 min, to 3 random nodes
-backupwrite = open("backup.bin","wb")
 
 while True:
 
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer:
-		backupwrite.write(createMessage(1))
-
+		backup.seek(0) #go to the start of the file
+		backup.write(createMessage(1)) #write in the new backup
+		backup.truncate() #delete anything left from the previous file
 		periodicalBuffer=currentTime
 		SELF_NODE.ts=currentTime
 

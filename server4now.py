@@ -165,8 +165,8 @@ while True:
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
 		backup.truncate() #delete anything left from the previous file
-		periodicalBuffer=currentTime
-		SELF_NODE.ts=currentTime
+		periodicalBuffer = currentTime
+		SELF_NODE.ts = currentTime
 
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer

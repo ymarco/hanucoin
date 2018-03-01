@@ -180,7 +180,7 @@ while True:
 				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes
 		
    		
-   		print "activeNodes: " + srt(activeNodes.keys())
+   		print "activeNodes: " + str(activeNodes.keys())
 	
 	time.sleep(0.1)  # we dont want the laptop to hang.
 

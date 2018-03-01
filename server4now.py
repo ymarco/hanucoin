@@ -2,11 +2,11 @@ from urllib2 import urlopen
 import threading, socket, hashspeed, time, Queue, struct, random, sys
 
 TCP_PORT=8089
-SELF_IP="127.0.0.1"
+SELF_IP = "127.0.0.1"
 try:
-	if sys.argv[1]=="public":
+	if sys.argv[1] == "public":
 		SELF_IP = urlopen('http://ip.42.pl/raw').read()
-	elif sys.argv[2]=="local":
+	elif sys.argv[1] == "local":
 		pass
 	else:
 		SELF_IP = sys.argv[1]

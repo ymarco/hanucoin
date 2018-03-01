@@ -171,7 +171,7 @@ while True:
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False
-
+		print "5 min events have started!"
 
 		for address in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses
 			out_socket.connect(address)
@@ -191,8 +191,8 @@ while True:
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
 			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
-				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes
-		
+				print "deleting: " + str(activeNodes[address]) +" as it wasnt seen in 30 min"
+				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())
 	

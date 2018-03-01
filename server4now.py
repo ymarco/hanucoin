@@ -20,7 +20,7 @@ nodes_updated = False #goes True when we find a new node, then turns back off - 
 START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
 
-backup=open("backup.bin","rb")
+backup=open("backup.bin","r+b")
 #socket.setdefaulttimeout(60)
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
@@ -124,7 +124,7 @@ backup.close()
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-listen_socket.bind(('', TCP_PORT)) #crashes the file. why?
+listen_socket.bind(('', TCP_PORT))
 
 
 def inputLoop():
@@ -141,6 +141,7 @@ def inputLoop():
 			updateByNodes(nodes)
 			#updateByBlocks(blocks)
 			sock.sendall(createMessage(2))
+			sock.shutdown(2)
 		except socket.timeout as err:
 			print '[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
 		except socket.error as err:
@@ -148,20 +149,16 @@ def inputLoop():
 		else:
 			print "[InputLoop]: reply sent successfuly"
 		finally:
-			sock.shutdown(2)
 			sock.close()
 
 
 threading.Thread(target = inputLoop).start() 
 
-out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) #its the socket that we send every 5 min, to 3 random nodes
-
 while True:
 
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
-
-	if currentTime - 5*60 >= periodicalBuffer: #every 5 min:
+	if currentTime - 5*60 >= periodicalBuffer:
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
 		backup.truncate() #delete anything left from the previous file
@@ -174,6 +171,7 @@ while True:
 		print "sending event has started!"
 
 		for address in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses
+			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 			try:
 				out_socket.connect(address)
 				out_socket.sendall(createMessage(1))
@@ -187,16 +185,15 @@ while True:
 					updateByNodes(nodes)
 					#updateByBlocks(blocks) #we dont do blocks for now
 			except socket.timeout as err:
-				print '[5 min message sends]: socket.timeout: while sending to {}, error: "{}"'.format(address[0]+":"+str(adress[1]), str(err))
+				print '[5 min message sends]: socket.timeout: while sending to {}, error: "{}"'.format(address[0]+":"+str(address[1]), str(err))
 			except socket.error as err:
-				print '[5 min message sends]: socket.error while sending to {}, error: "{}"'.format(address[0]+":"+str(adress[1]), str(err))
+				print '[5 min message sends]: socket.error while sending to {}, error: "{}"'.format(address[0]+":"+str(address[1]), str(err))
 			finally:
-				out_socket.shutdown(2)
 				out_socket.close()
 		#DELETE 30 MIN OLD NODES:
-		for address in activeNodes.iterkeys():
+		for address in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
 			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
-				print "Deleted: " + adress[0]+":"+str(adress[1]) + "'s node as it wasn't seen in 30 min"
+				print "Deleted: " + address[0]+":"+str(address[1]) + "'s node as it wasn't seen in 30 min"
 				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())

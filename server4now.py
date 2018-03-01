@@ -149,7 +149,7 @@ while True:
 			print "Sent message to:" + address[0]+str(address[1])
 			out_socket.shutdown(1) #Finished sending, now listening
 			msg = sock.recv(1024)
-			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
+			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg ~Marco
 			cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			out_socket.shutdown(2)

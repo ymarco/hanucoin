@@ -53,23 +53,26 @@ def parseMsg(msg):
 
 	if msg.cut(4) != START_NODES: 
 		raise ValueError("Wrong start_nodes")
-
-	node_count = struct.unpack(">I",msg.cut(4))[0]
-	for x in xrange(node_count):
-		name_len=struct.unpack("B",msg.cut(1))[0]
-		name 	=msg.cut(name_len)
-		host_len=struct.unpack("B",msg.cut(1))[0]
-		host 	=msg.cut(host_len)
-		port 	=struct.unpack(">H",msg.cut(2))[0]
-		ts 		=struct.unpack(">I",msg.cut(4))[0]
-		nodes[(host,port)]=node(host,port,name,ts)
-	if msg.cut(4) != START_BLOCKS: 
-		raise ValueError("Wrong start_blocks")
-	block_count=struct.unpack(">I",msg.cut(4))[0]
-	print "block_count:", block_count
-	for x in xrange(block_count):
-		print "current block:" , x
-		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
+	try:
+		node_count = struct.unpack(">I",msg.cut(4))[0]
+		for x in xrange(node_count):
+			name_len=struct.unpack("B",msg.cut(1))[0]
+			name 	=msg.cut(name_len)
+			host_len=struct.unpack("B",msg.cut(1))[0]
+			host 	=msg.cut(host_len)
+			port 	=struct.unpack(">H",msg.cut(2))[0]
+			ts 		=struct.unpack(">I",msg.cut(4))[0]
+			nodes[(host,port)]=node(host,port,name,ts)
+		print "nodes:",nodes
+		if msg.cut(4) != START_BLOCKS: 
+			raise ValueError("Wrong start_blocks")
+		block_count=struct.unpack(">I",msg.cut(4))[0]
+		print "block_count:", block_count
+		for x in xrange(block_count):
+			print "current block:", x
+			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
+	except IndexError:
+		pass
 	return cmd ,nodes, blocks
 
 	#Example:
@@ -77,10 +80,10 @@ def parseMsg(msg):
 	#print(thingy.cmd) >> 1 (a 4 byte number)
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)} #was it changed?
 
-def createMessege(cmd_i):
+def createMessage(cmd_i):
 	global START_NODES, START_BLOCKS
 	cmd = struct.pack(">I", cmd_i)
-	
+	nodes_count=struct.pack(">I",len(activeNodes))
 	nodes = ''
 	for node in activeNodes.itervalues():
 		nodes += struct.pack(">B",len(node.name)) + node.name + struct.pack(">B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)

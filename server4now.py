@@ -1,13 +1,11 @@
 import threading, socket, hashspeed, time, Queue, struct, random, sys
-
 TCP_IP = ''
 try:
 	TCP_PORT = int(sys.argv[1])
 except IndexError:
 	TCP_PORT=8089
 	
-activeNodes = {} #its a dict
-timeBuffer = int(time.time()) # it gets updated to current time every 5 min
+sendBuffer = int(time.time()) # it gets updated to current time every 5 min
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
 START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
@@ -71,14 +69,10 @@ def parseMsg(msg):
 		for x in xrange(block_count):
 			print "current block:", x
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
-	except IndexError:
-		pass
+	except IndexError as err:
+		print "Message too short, cut error:"
+		print err
 	return cmd ,nodes, blocks
-
-	#Example:
-	#thingy = parsedmsg(soc)
-	#print(thingy.cmd) >> 1 (a 4 byte number)
-	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)} #was it changed?
 
 def createMessage(cmd_i):
 	global START_NODES, START_BLOCKS
@@ -96,17 +90,6 @@ def createMessage(cmd_i):
 
 
 def updateByNodes(nodes):
-	global activeNodes,nodes_updated
-	for address,nod in nodes.iteritems():
-		if currentTime - 1800 <nod.ts <=currentTime: #If it's not a message from the future or from more than 30 minutes ago
-			if address not in activeNodes.iterkeys():
-				nodes_updated = True
-				activeNodes[address] = nod
-			elif activeNodes[address].ts < nod.ts: #elif prevents exceptions here (activeNodes[address] exists)
-				activeNodes[address].ts = nod.ts
-
-
-def updateByNodes(nodes):
 	global activeNodes, nodes_updated
 	for address,node in nodes.iteritems(): #we also need to add a blacklist for 127.0.0.1
 		if currentTime - 30*60 < node.ts <= currentTime: #If it's not a message from the future or from more than 30 minutes ago
@@ -115,6 +98,11 @@ def updateByNodes(nodes):
 				activeNodes[address] = node
 			elif activeNodes[address].ts < node.ts: #elif prevents exceptions here (activeNodes[address] exists - we already have this node)
 					activeNodes[address].ts = node.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
+
+backupread=open("backup.bin","rb")
+
+_,activeNodes,__=parseMsg(backupread.read()) #get nodes from init file (backup.bin)
+backupread.close()
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -148,14 +136,17 @@ def inputLoop():
 threading.Thread(target = inputLoop).start() 
 
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) #its the socket that we send every 5 min, to 3 random nodes
+backupwrite = open("backup.bin","wb")
+
 while True:
 
 
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
-	
-	if nodes_updated or currentTime - 5*60 >= timeBuffer: #Every 5 min, or when activeNodes gets an update:
-		timeBuffer = currentTime #resetting the timer
+	if currentTime - 5*60 >= periodicalBuffer:
+		backupwrite.write(createMessage(1))
+	if nodes_updated or currentTime - 5*60 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
+		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False
 
 

@@ -1,0 +1,1 @@
+c:\Python27\python.exe -m pip install colorama-0.3.9-py2.py3-none-any.whl

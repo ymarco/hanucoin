@@ -1,0 +1,4 @@
+WRITE SHIT HERE IF YOU WANT TO
+02/03/2018 23:54 @Puntsiluntsi:
+ server4now now uses the module 'colorama' which implements colored text in cmd.
+ Installation files are in the new installation folder (run install-pip then install-colorama)

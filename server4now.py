@@ -75,7 +75,7 @@ def updateBySock(sock):
 	data = parsedmsg(parseSocket(sock))
 	for address, node in data.nodes.iteritems(): #we also need to add a blacklist for 127.0.0.1
 		if currentTime - 30*60 < node.ts <= currentTime: #If it's not a message from the future or from more than 30 minutes ago
-			if address not in activeNodes.iterkeys(): #Its a new node, lets add it
+			if address not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
 				activeNodes[address] = node
 			elif activeNodes[address].ts < node.ts: #elif prevents exceptions here (activeNodes[adress] exists - we already have this node)

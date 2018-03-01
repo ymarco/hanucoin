@@ -1,7 +1,7 @@
 from urllib2 import urlopen
 import threading, socket, hashspeed, time, Queue, struct, random, sys
 
-TCP_PORT=8089
+TCP_PORT= 8089
 SELF_IP = "127.0.0.1"
 try:
 	if sys.argv[1] == "public":
@@ -86,6 +86,7 @@ def parseMsg(msg):
 		print err
 	return cmd ,nodes, blocks
 
+
 def createMessage(cmd_i):
 	global START_NODES, START_BLOCKS
 	
@@ -156,7 +157,6 @@ backupwrite = open("backup.bin","wb")
 
 while True:
 
-
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer:
@@ -188,7 +188,7 @@ while True:
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
 			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
-				print "deleting: " + str(activeNodes[address]) +" as it wasnt seen in 30 min"
+				print "Deleted: " + str(activeNodes[address]) +" as it wasnt seen in 30 min"
 				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())

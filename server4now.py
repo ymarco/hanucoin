@@ -5,7 +5,9 @@ try:
 except IndexError:
 	TCP_PORT=8089
 	
-sendBuffer = int(time.time()) # it gets updated to current time every 5 min
+sendBuffer = int(time.time())
+periodicalBuffer=int(time.time())
+
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
 START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
@@ -145,6 +147,7 @@ while True:
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer:
 		backupwrite.write(createMessage(1))
+		periodicalBuffer=currentTime
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: #Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False

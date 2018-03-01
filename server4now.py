@@ -22,13 +22,14 @@ class node:
 
 
 def cut(string,bytes):
-	piece=string[:bytes]
-	string=[bytes:]
+	piece = string[:bytes]
+	string = [bytes:]
 	return piece
 
 def parseMsg(msg): #Needs to be changed into a string data processing function rather than real time processing one. *maybe
-	nodes={}
-	blocks=[]
+	global START_NODES, START_BLOCKS
+	nodes = {}
+	blocks = []
 	cmd = struct.unpack(">I",cut(msg,4))[0]
 
 	if cut(msg,4) != START_NODES #start_nodes!=0xbeefbeef:
@@ -36,17 +37,17 @@ def parseMsg(msg): #Needs to be changed into a string data processing function r
 
 	node_count = struct.unpack(">I",cut(msg,4))[0]
 	for x in xrange(node_count):
-		name_len=struct.unpack("B",cut(msg,1))[0]
-		name=cut(msg,name_len)
-		host_len=struct.unpack("B",cut(msg,1))[0]
-		host=cut(msg,host_len)
-		port=struct.unpack(">H",cut(msg,2))[0]
-		last_seen_ts=struct.unpack(">I",cut(msg,4))[0]
-		nodes[(host,port)]=node(host,port,name,last_seen_ts)
+		name_len=struct.unpack(">B",cut(msg,1))[0]
+		name 	=cut(msg,name_len)
+		host_len=struct.unpack(">B",cut(msg,1))[0]
+		host 	=cut(msg,host_len)
+		port 	=struct.unpack(">H",cut(msg,2))[0]
+		ts 		=struct.unpack(">I",cut(msg,4))[0]
+		nodes[(host,port)]=node(host,port,name,ts)
 
 	if cut(msg,4) != START_BLOCKS: #start_blocks!=0xdeaddead
 		raise TypeError("Wrong start_blocks")
-	block_count=struct.unpack(">I",cut(msg,4))[0]
+	block_count = struct.unpack(">I",cut(msg,4))[0]
 
 	for x in xrange(block_count):
 		blocks.append(cut(msg,32)) #NEEDS CHANGES AT THE LATER STEP
@@ -77,12 +78,12 @@ def createMessege(cmd_i):
 def updateByNodes(nodes):
 	global activeNodes,nodes_updated
 	for address,nod in nodes.iteritems():
-		if currentTime-1800 <nod.ts <=currentTime: #If it's not a message from the future or from more than 30 minutes ago
+		if currentTime - 1800 <nod.ts <=c urrentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
-				nodes_updated=True
-				activeNodes[address]=nod
-			elif activeNodes[address].ts<nod.ts: #elif prevents exceptions here (activeNodes[address] exists)
-				activeNodes[address].ts=nod.ts
+				nodes_updated = True
+				activeNodes[address] = nod
+			elif activeNodes[address].ts < nod.ts: #elif prevents exceptions here (activeNodes[address] exists)
+				activeNodes[address].ts = nod.ts
 
 #listen_socket is global
 

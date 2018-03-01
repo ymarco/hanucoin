@@ -20,18 +20,18 @@ class node:
 def parseSocket(soc):
 	nodes = {} #dict
 	blocks = []
-	cmd = soc.recv(4)
+	cmd = struct.unpack(">I", soc.recv(4))[0] #raises the EXCEPTION: "unpack requires a string argument of length 4' WHY??
 	if soc.recv(4) != "\xbe\xef\xbe\xef":#start_nodes != 0xbeefbeef:
 		raise Exception("parseSocket.start_nodes_isnt_'0xbeefbeef'")
-	node_count = struct.unpack(">I",soc.recv(4))[0]
+	node_count = struct.unpack(">I",soc.recv(4))[0] 
 	for x in xrange(node_count):
-		name_len = struct.unpack("B",soc.recv(1))[0]
-		name = soc.recv(name_len)
-		host_len = struct.unpack("B",soc.recv(1))[0]
-		host = soc.recv(host_len)
-		port = soc.recv(2)
-		last_seen_ts = soc.recv(4)
-		nodes[(host,port)] = (name,last_seen_ts)
+		name_len= struct.unpack(">B",soc.recv(1))[0]
+		name 	= soc.recv(name_len)
+		host_len= struct.unpack(">B",soc.recv(1))[0]
+		host 	= soc.recv(host_len)
+		port 	= struct.unpack(">H", soc.recv(2))[0] #added the unpack ~Marco
+		ts 		= struct.unpack(">I", soc.recv(4))[0] #added the unpack ~Marco
+		nodes[(host,port)] = (name,ts)
 	if soc.recv(4) != "\xde\xad\xde\xad": #start_blocks!= 0xdeaddead
 		raise Exception("parseSocket.start_blocks_isnt_'0xdeaddead'")
 	block_count = struct.unpack(">I",soc.recv(4))[0]
@@ -43,7 +43,7 @@ def parseSocket(soc):
 	for address,tup in nodes:
 		nodes[address]=node(*(address+(tup[0],)+struct.unpack(">I",tup[1])))
 
-	return struct.unpack(">I",cmd)[0],nodes,blocks
+	return cmd, nodes, blocks
 
 class parsedmsg:
 	def __init__(self, cmd, nodes, blocks):
@@ -71,15 +71,15 @@ def createMessege(cmd_i):
 	return cmd + START_NODES + nodes_count + nodes + START_BLOCKS + block_count + blocks
 
 def updateBySock(sock):
-	global activeNodes,nodes_updated
+	global activeNodes, nodes_updated
 	data = parsedmsg(parseSocket(sock))
-	for address, nod in data.nodes.iteritems():
-		if currentTime - 30*60 < nod.ts <= currentTime: #If it's not a message from the future or from more than 30 minutes ago
+	for address, node in data.nodes.iteritems(): #we also need to add a blacklist for 127.0.0.1
+		if currentTime - 30*60 < node.ts <= currentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys(): #Its a new node, lets add it
 				nodes_updated = True
-				activeNodes[address] = nod
-			elif activeNodes[address].ts < nod.ts: #elif prevents exceptions here (activeNodes[adress] exists - we already have this node)
-					activeNodes[address].ts = nod.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
+				activeNodes[address] = node
+			elif activeNodes[address].ts < node.ts: #elif prevents exceptions here (activeNodes[adress] exists - we already have this node)
+					activeNodes[address].ts = node.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
 
 #listen_socket is global
 TCP_IP = ''
@@ -93,16 +93,19 @@ def inputLoop():
 	while True:
 		sock, addr = listen_socket.accept() #blocking
 		#we need to do something with recv here, dont we?
-		try: 
+		
+		
+		try:
 			updateBySock(sock)
 			print "[inputLoop]: got a message from: " +  str(addr)
 			sock.sendall(createMessage(2)) #blocking
 			print "[inputLoop]: reply sent succesfully"
-			
+
 		except Exception as expt:
 			print "[inputLoop]: got a message from: " + str(addr)
 			print '[inputLoop]: Error: "' + str(expt) +'"'
 
+		
 		sock.close() #we are done with it anyway
 
 
@@ -115,15 +118,16 @@ while True:
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
 	
-	if nodes_updated or currentTime - 5*60 >= timeBuffer: #EVERY 5 MIN:
-		timeBuffer = currentTime 
+	if nodes_updated or currentTime - 5*60 >= timeBuffer: #Every 5 min, or when activeNodes gets an update:
+		timeBuffer = currentTime #resetting the timer
 		nodes_updated = False
 
 
-		for address in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 addresses
+		for address in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses
 			out_socket.connect(address)
 			out_socket.send(createMessage(1)) #we'll need to create a non-blocking loop for that when messeges get long, *or a new thread*
-			updateBySock(out_socket)
+			print "Sent message to: " + str(address)
+			updateBySock(out_socket) #is that the reply message we're supposed to get? 
 			out_socket.close()
 
 		#DELETE 30 MIN OLD NODES:
@@ -131,7 +135,8 @@ while True:
 			if currentTime - activeNodes[address].ts > 30*60: #the node wasnt seen in 30 min:
 				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes
 		
-   
+   		
+   		print "activeNodes: " + srt(activeNodes.keys())
 	
 	time.sleep(0.1)  # we dont want the laptop to hang.
 

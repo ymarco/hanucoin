@@ -68,7 +68,7 @@ def parseMsg(msg):
 	block_count=struct.unpack(">I",msg.cut(4))[0]
 	print "block_count:", block_count
 	for x in xrange(block_count):
-		print "current block:" x
+		print "current block:" , x
 		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	return cmd ,nodes, blocks
 
@@ -168,9 +168,8 @@ while True:
 			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			out_socket.shutdown(2)
 			out_socket.close()
-			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			updateByNodes(nodes)
-			#updateByBlocks(blocks)
+			#updateByBlocks(blocks) #we dont do blocks for now
 
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():

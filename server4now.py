@@ -4,9 +4,9 @@ import threading, socket, hashspeed, time, Queue, struct, random, sys
 TCP_PORT=8089
 SELF_IP="127.0.0.1"
 try:
-	if sys.argv[2]=="public":
+	if sys.argv[1]=="public":
 		SELF_IP = urlopen('http://ip.42.pl/raw').read()
-	elif sys.argv[1]=="local":
+	elif sys.argv[2]=="local":
 		pass
 	else:
 		SELF_IP = sys.argv[1]
@@ -78,7 +78,6 @@ def parseMsg(msg):
 		block_count=struct.unpack(">I",msg.cut(4))[0]
 		print "block_count:", block_count
 		for x in xrange(block_count):
-			print "current block:", x
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
 		print "Message too short, cut error:"
@@ -117,7 +116,7 @@ backupread.close()
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-listen_socket.bind((TCP_IP, TCP_PORT))
+listen_socket.bind(('', TCP_PORT))
 
 
 def inputLoop():

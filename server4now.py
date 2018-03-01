@@ -51,7 +51,7 @@ def parseMsg(msg):
 	blocks=[]
 	cmd = struct.unpack(">I",msg.cut(4))[0]
 
-	if msg.cut(4) != START_NODES: #start_nodes!=0xbeefbeef
+	if msg.cut(4) != START_NODES: 
 		raise ValueError("Wrong start_nodes")
 
 	node_count = struct.unpack(">I",msg.cut(4))[0]
@@ -64,7 +64,7 @@ def parseMsg(msg):
 		ts 		=struct.unpack(">I",msg.cut(4))[0]
 		nodes[(host,port)]=node(host,port,name,ts)
 
-	if msg.cut(4) != START_BLOCKS: #start_blocks!=0xdeaddead
+	if msg.cut(4) != START_BLOCKS: 
 		raise ValueError("Wrong start_blocks")
 	block_count=struct.unpack(">I",msg.cut(4))[0]
 	print block_count
@@ -72,7 +72,6 @@ def parseMsg(msg):
 		print x
 		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	return cmd ,nodes, blocks
-
 
 	#Example:
 	#thingy = parsedmsg(soc)
@@ -138,7 +137,7 @@ def inputLoop():
 		except socket.error as err:
 			print '[InputLoop]: socket.error:"' + str(err) +'"'
 		else:
-			print "[InputLoop]: replay sent successfuly"
+			print "[InputLoop]: reply sent successfuly"
 		finally:
 			sock.shutdown(2)
 			sock.close()

@@ -3,6 +3,7 @@ import threading, socket, hashspeed, time, Queue, struct, random, sys
 
 TCP_PORT= 8089
 SELF_IP = "127.0.0.1"
+BACKUP_FILE_NAME="backup.bin"
 try:
 	if sys.argv[1] == "public":
 		SELF_IP = urlopen('http://ip.42.pl/raw').read()
@@ -11,16 +12,20 @@ try:
 	else:
 		SELF_IP = sys.argv[1]
 	TCP_PORT = int(sys.argv[2])
+	BACKUP_FILE_NAME=sys.argv[3]
 except IndexError:
 	pass
 
 periodicalBuffer = sendBuffer = int(time.time())
-
+#DEBUG: *******************
+periodicalBuffer -= (4*60+0.4*60)
+sendBuffer -= (4*60+0.6*60)
+#************************
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
 START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
 
-backup=open("backup.bin","r+b")
+backup=open(BACKUP_FILE_NAME,"r+b")
 #socket.setdefaulttimeout(60)
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
@@ -120,7 +125,6 @@ def updateByNodes(nodes):
 
 
 _,activeNodes,__=parseMsg(backup.read()) #get nodes from init file (backup.bin)
-backup.close()
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -133,15 +137,14 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print "[inputLoop]: got a message from: " + addr[0] + ":" + str(addr[1])
 		try:	
-			msg = sock.recv(1<<20) #Mega byte
-			if msg == "":
-				raise ValueError(addr + "has sent an empty str")
-			cmd,nodes,blocks = parseMsg(msg)
+			msg = sock.recv(1<<20) #Mega Byte
+			if msg != "":
+				cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=1: raise ValueError("cmd=1 in input functuon!") | will be handled later with try,except
-			updateByNodes(nodes)
+				updateByNodes(nodes)
 			#updateByBlocks(blocks)
-			sock.sendall(createMessage(2))
-			sock.shutdown(2)
+				sock.sendall(createMessage(2))
+				sock.shutdown(2)
 		except socket.timeout as err:
 			print '[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
 		except socket.error as err:
@@ -159,13 +162,15 @@ while True:
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer:
+		print "file writing even has started@"
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
 		backup.truncate() #delete anything left from the previous file
+		backup.flush()
 		periodicalBuffer = currentTime
 		SELF_NODE.ts = currentTime
 
-	if nodes_updated or currentTime - 2 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
+	if nodes_updated or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False
 		print "sending event has started!"
@@ -177,7 +182,7 @@ while True:
 				out_socket.sendall(createMessage(1))
 				print "[5 min message sends]: Sent a message to: " + str(address)
 				#out_socket.shutdown(1) Finished sending, now listening
-				msg = out_socket.recv(1<<20)
+				msg = out_socket.recv(1<<20) #Mega Byte
 				out_socket.shutdown(2)
 				if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 					cmd,nodes,blocks = parseMsg(msg)
@@ -197,7 +202,10 @@ while True:
 				del activeNodes[address]
    		
    		print "activeNodes: " + str(activeNodes.keys())
+<<<<<<< HEAD
 	print "main loop ended"
+=======
+>>>>>>> b1f7e4ab31169a03c0cd4d98685e0f9f0c654cfd
 	time.sleep(1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability

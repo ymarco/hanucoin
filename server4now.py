@@ -22,7 +22,7 @@ def parseSocket(soc):
 	blocks = []
 	cmd = soc.recv(4)
 	if soc.recv(4) != "\xbe\xef\xbe\xef":#start_nodes != 0xbeefbeef:
-		raise Exception("start_nodes_isnt_'0xbeefbeef'")
+		raise Exception("parseSocket.start_nodes_isnt_'0xbeefbeef'")
 	node_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(node_count):
 		name_len = struct.unpack("B",soc.recv(1))[0]
@@ -33,7 +33,7 @@ def parseSocket(soc):
 		last_seen_ts = soc.recv(4)
 		nodes[(host,port)] = (name,last_seen_ts)
 	if soc.recv(4) != "\xde\xad\xde\xad": #start_blocks!= 0xdeaddead
-		raise Exception("start_blocks_isnt_'0xdeaddead'")
+		raise Exception("parseSocket.start_blocks_isnt_'0xdeaddead'")
 	block_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(block_count):
 		blocks.append(soc.recv(32))

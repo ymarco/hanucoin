@@ -1,8 +1,12 @@
-import threading, socket, hashspeed, time, Queue, struct
+import threading, socket, hashspeed, time, Queue, struct, sys
+
+TCP_IP = ''
+TCP_PORT = int(sys.argv[1])
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
 nodes_updated = False
+
 class node:
 	def __init__(self,host,port,name,ts):
 		self.host=host
@@ -12,39 +16,33 @@ class node:
 	def __eq__(self,other):
 		return self.__dict__==other.__dict__
 
-def parseSocket(soc):
+def cut(string,bytes):
+	piece=string[:bytes]
+	string=[bytes:]
+	return piece
+
+def parseMsg(msg): #Needs to be changed into a string data processing function rather than real time processing one. *maybe
 	nodes={}
 	blocks=[]
-	cmd=soc.recv(2)
-	if soc.recv(4)!="\xbe\xef\xbe\xef" #start_nodes==0xbeefbeef:
-		raise Exception("Wrong start_nodes")
-	node_count=struct.unpack(">I",soc.recv(4))[0]
+	cmd = struct.unpack(">I",cut(msg,4))[0]
+	if cut(msg,4) != "\xbe\xef\xbe\xef" #start_nodes!=0xbeefbeef:
+		raise TypeError("Wrong start_nodes")
+	node_count = struct.unpack(">I",cut(msg,4))[0]
 	for x in xrange(node_count):
-		name_len=struct.unpack("B",soc.recv(1))[0]
-		name=soc.recv(name_len)
-		host_len=struct.unpack("B",soc.recv(1))[0]
-		host=soc.recv(host_len)
-		port=soc.recv(2)
-		last_seen_ts=soc.recv(4)
-		nodes[(host,port)]=(name,last_seen_ts)
-	if soc.recv(4)!="\xde\xad\xde\xad": #start_blocks!=0xdeaddead
-		raise Exception("Wrong start_blocks")
-	block_count=struct.unpack(">I",soc.recv(4))[0]
+		name_len=struct.unpack("B",cut(msg,1))[0]
+		name=cut(msg,name_len)
+		host_len=struct.unpack("B",cut(msg,1))[0]
+		host=cut(msg,host_len)
+		port=struct.unpack(">H",cut(msg,2))[0]
+		last_seen_ts=struct.unpack(">I",cut(msg,4))[0]
+		nodes[(host,port)]=node(host,port,name,last_seen_ts)
+	if cut(msg,4) != "\xde\xad\xde\xad": #start_blocks!=0xdeaddead
+		raise TypeError("Wrong start_blocks")
+	block_count=struct.unpack(">I",cut(msg,4))[0]
 	for x in xrange(block_count):
-		blocks.append(soc.recv(32))
-	soc.close()
-	#Parse(blocks)
-	#Parse(nodes):
-	for address,tup in nodes:
-		nodes[address]=node(*(address+(tup[0],)+struct.unpack(">I",tup[1])))
+		blocks.append(cut(msg,32)) #NEEDS CHANGES AT THE LATER STEP
 
-	return struct.unpack(">I",cmd)[0],nodes,blocks
-
-class parsedmsg:
-	def __init__(self,cmd,nodes,blocks):
-		self.cmd=cmd
-		self.nodes=nodes
-		self.blocks=blocks
+	return cmd,nodes,blocks
 
 	#Example:
 	#thingy = parsedmsg(soc)
@@ -66,10 +64,9 @@ def createMessege(cmd_i):
 		
 	return cmd + start_nodes + nodes_count + nodes + start_blocks + block_count + blocks
 
-def updateBySock(sock):
+def updateByNodes(nodes):
 	global activeNodes,nodes_updated
-	data=parsedmsg(parseSocket(sock))
-	for address,nod in data.nodes.iteritems():
+	for address,nod in nodes.iteritems():
 		if currentTime-1800 <nod.ts <=currentTime: #If it's not a message from the future or from more than 30 minutes ago
 			if address not in activeNodes.iterkeys():
 				nodes_updated=True
@@ -78,18 +75,22 @@ def updateBySock(sock):
 				activeNodes[address].ts=nod.ts
 
 #listen_socket is global
-TCP_IP = '127.0.0.1'
-TCP_PORT = 8089
+
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((TCP_IP, TCP_PORT))
-listen_socket.listen(1)
 
 def inputLoop():
+	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		updateBySock(sock)
-		print "data message from" + addr
+		print "data message from:", addr
+		msg=sock.recv(1024)
+		cmd,nodes,blocks = parseMsg(msg)
+		#if cmd!=1: raise ValueError("cmd=1 in input functuon!") | will be handled later with try,except
+		updateByNodes(nodes)
+		#updateByBlocks(blocks)
 		sock.sendall(createMessage(2))
+		sock.shutdown(2)
 		sock.close()
 
 
@@ -100,7 +101,7 @@ out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 while True:
 
 	#DoSomeCoinMining()
-	currentTime=int(time.time())
+	currentTime = int(time.time())
 	
 	if nodes_updated or currentTime - 5*60 >= timeBuffer: #once every 5 min:
 		timeBuffer=currentTime
@@ -109,9 +110,16 @@ while True:
 
 		for address in random.sample(activeNodes.viewkeys(),min(3,len(activeNodes))): #Random 3 addresses
 			out_socket.connect(address)
-			out_socket.send(createMessage(1))
-			updateBySock(out_socket)
+			out_socket.sendall(createMessage(1))
+			out_socket.shutdown(1) #Finished sending, now listening
+			msg=sock.recv(1024)
+			if msg != "": #Can potentialy be changed into (if msg == "": raise something)
+			cmd,nodes,blocks = parseMsg(msg)
+			out_socket.shutdown(2)
 			out_socket.close()
+			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
+			updateByNodes(nodes)
+			#updateByBlocks(blocks)
 
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():

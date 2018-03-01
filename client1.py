@@ -6,7 +6,7 @@ import socket
 TCP_IP = '127.0.0.1'
 TCP_PORT = 8089
 BUFFER_SIZE = 1024
-messTemp = open("backup.bin","rb")
+messTemp1 = open("talign.bin","rb")
 MESSAGE = messTemp.read()
 
 

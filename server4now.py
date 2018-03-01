@@ -198,7 +198,7 @@ while True:
    		
    		print "activeNodes: " + str(activeNodes.keys())
 	print "main loop ended"
-	time.sleep(0.1)  # we dont want the laptop to hang.
+	time.sleep(1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
 print "main thread ended"

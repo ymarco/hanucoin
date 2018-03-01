@@ -124,7 +124,7 @@ def inputLoop():
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		print "data message from:", addr
+		print "[inputLoop]: got a message from: " + addr[0] + ":" + str(addr[1])
 		try:	
 			msg = sock.recv(1024)
 			if msg == "":
@@ -134,21 +134,14 @@ def inputLoop():
 			updateByNodes(nodes)
 			#updateByBlocks(blocks)
 			sock.sendall(createMessage(2))
-			sock.shutdown(2)
-			sock.close()
 		#except socket.timeout:
 		except socket.error as err:
-
-			"""		try:
-			updateBySock(sock)
-			print "[inputLoop]: got a message from: " +  str(addr)
-			sock.sendall(createMessage(2)) #blocking
-			print "[inputLoop]: reply sent succesfully"
-
-		except Exception as expt:
-			print "[inputLoop]: got a message from: " + str(addr)
-			print '[inputLoop]: Error: "' + str(expt) +'"' *************THIS WILL BE MERGED LATER************* """
-
+			print '[InputLoop]: socket.error:"' + str(err) +'"'
+		else:
+			print "[InputLoop]: replay sent successfuly"
+		finally:
+			sock.shutdown(2)
+			sock.close()
 
 
 threading.Thread(target = inputLoop).start() 
@@ -170,7 +163,7 @@ while True:
 
 			out_socket.sendall(createMessage(1))
 			print "Sent message to:" + address[0]+str(address[1])
-			out_socket.shutdown(1) #Finished sending, now listening
+			#out_socket.shutdown(1) #Finished sending, now listening
 			msg = sock.recv(1024)
 			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 				cmd,nodes,blocks = parseMsg(msg)

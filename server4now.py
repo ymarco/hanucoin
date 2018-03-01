@@ -63,12 +63,13 @@ def parseMsg(msg):
 		port 	=struct.unpack(">H",msg.cut(2))[0]
 		ts 		=struct.unpack(">I",msg.cut(4))[0]
 		nodes[(host,port)]=node(host,port,name,ts)
+	print "nodes:",nodes
 	if msg.cut(4) != START_BLOCKS: 
 		raise ValueError("Wrong start_blocks")
 	block_count=struct.unpack(">I",msg.cut(4))[0]
 	print "block_count:", block_count
 	for x in xrange(block_count):
-		print "current block:" x
+		print "current block:", x
 		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	return cmd ,nodes, blocks
 

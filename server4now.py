@@ -162,9 +162,8 @@ while True:
 			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			out_socket.shutdown(2)
 			out_socket.close()
-			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			updateByNodes(nodes)
-			#updateByBlocks(blocks)
+			#updateByBlocks(blocks) #we dont do blocks for now
 
 		#DELETE 30 MIN OLD NODES:
 		for address in activeNodes.iterkeys():
@@ -172,7 +171,7 @@ while True:
 				del activeNodes[address] #the node is no longer active - so it doesnt belong to activeNodes
 		
    		
-   		print "activeNodes: " + srt(activeNodes.keys())
+   		print "activeNodes: " + str(activeNodes.keys())
 	
 	time.sleep(0.1)  # we dont want the laptop to hang.
 

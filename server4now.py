@@ -1,10 +1,12 @@
-import threading, socket, hashspeed, time, Queue, struct, random
+import threading, socket, hashspeed, time, Queue, struct, random, sys
 
 activeNodes = {} #its a dict
 timeBuffer = int(time.time()) # it gets updated to current time every 5 min
 nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
 START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
+#teamname = hashspeed.somethingWallet(lead)
+#local ip = ''
 
 class node:
 	def __init__(self,host,port,name,ts):
@@ -20,7 +22,7 @@ def parseSocket(soc):
 	blocks = []
 	cmd = soc.recv(4)
 	if soc.recv(4) != "\xbe\xef\xbe\xef":#start_nodes != 0xbeefbeef:
-		raise Exception("start_nodes isnt '0xbeefbeef'")
+		raise Exception("start_nodes_isnt_'0xbeefbeef'")
 	node_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(node_count):
 		name_len = struct.unpack("B",soc.recv(1))[0]
@@ -31,7 +33,7 @@ def parseSocket(soc):
 		last_seen_ts = soc.recv(4)
 		nodes[(host,port)] = (name,last_seen_ts)
 	if soc.recv(4) != "\xde\xad\xde\xad": #start_blocks!= 0xdeaddead
-		raise Exception("start_blocks isnt '0xdeaddead'")
+		raise Exception("start_blocks_isnt_'0xdeaddead'")
 	block_count = struct.unpack(">I",soc.recv(4))[0]
 	for x in xrange(block_count):
 		blocks.append(soc.recv(32))
@@ -55,6 +57,7 @@ class parsedmsg:
 	#print(thingy.nodes) >> {"hostname1":(teamname1,port1,last_seents1), "hostname2":(teamname2,...)} #was it changed?
 
 def createMessege(cmd_i):
+	global START_NODES, START_BLOCKS
 	cmd = struct.pack(">I", cmd_i)
 	
 	nodes = ''
@@ -90,10 +93,16 @@ def inputLoop():
 	while True:
 		sock, addr = listen_socket.accept() #blocking
 		#we need to do something with recv here, dont we?
-		updateBySock(sock)
-		print "got a message from" + addr
-		sock.sendall(createMessage(2)) #blocking
-		sock.close() #we are done with it
+		try: 
+			updateBySock(sock)
+			print "[inputLoop]: got a message from: " +  str(addr)
+			sock.sendall(createMessage(2)) #blocking
+			
+		except Exception as expt:
+			print "[inputLoop]: got a message from: " + str(addr)
+			print '[inputLoop]: Error: "' + str(expt) +'"'
+
+		sock.close() #we are done with it anyway
 
 
 

@@ -13,7 +13,7 @@ MESSAGE = messTemp.read()
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((TCP_IP, TCP_PORT))
 
-s.sendall(MESSAGE)
+s.senda(MESSAGE) #the client just gets stuck for 5 min till i closed it! I think 'sendall' aint good at all
 data = s.recv(BUFFER_SIZE)
 
 

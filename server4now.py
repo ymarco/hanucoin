@@ -1,10 +1,19 @@
+from urllib2 import urlopen
 import threading, socket, hashspeed, time, Queue, struct, random, sys
-TCP_IP = ''
+
+TCP_PORT=8089
+SELF_IP="127.0.0.1"
 try:
-	TCP_PORT = int(sys.argv[1])
+	if sys.argv[2]=="public":
+		SELF_IP = urlopen('http://ip.42.pl/raw').read()
+	elif sys.argv[1]=="local":
+		pass
+	else:
+		SELF_IP = sys.argv[1]
+	TCP_PORT = int(sys.argv[2])
 except IndexError:
-	TCP_PORT=8089
-	
+	pass
+
 sendBuffer = int(time.time())
 periodicalBuffer=int(time.time())
 
@@ -79,7 +88,7 @@ def parseMsg(msg):
 def createMessage(cmd_i):
 	global START_NODES, START_BLOCKS
 	cmd = struct.pack(">I", cmd_i)
-	nodes_count=struct.pack(">I",len(activeNodes))
+	nodes_count=struct.pack(">I",len(activeNodes)+1)
 	nodes = ''
 	for node in activeNodes.itervalues():
 		nodes += struct.pack(">B",len(node.name)) + node.name + struct.pack(">B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)

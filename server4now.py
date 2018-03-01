@@ -62,7 +62,7 @@ def createMessege(cmd_i):
 	
 	nodes = ''
 	for node in activeNodes.itervalues():
-		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
+		nodes += struct.pack(">B",len(node.name)) + node.name + struct.pack(">B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 		
 	start_blocks = struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now, because

@@ -35,7 +35,7 @@ def parseMsg(msg): #Needs to be changed into a string data processing function r
 	if cut(msg,4) != START_NODES #start_nodes!=0xbeefbeef:
 		raise TypeError("Wrong start_nodes")
 
-	node_count = struct.unpack(">I",cut(msg,4))[0]
+	node_count 	= struct.unpack(">I",cut(msg,4))[0]
 	for x in xrange(node_count):
 		name_len=struct.unpack(">B",cut(msg,1))[0]
 		name 	=cut(msg,name_len)
@@ -124,7 +124,7 @@ def inputLoop():
 
 		except Exception as expt:
 			print "[inputLoop]: got a message from: " + str(addr)
-			print '[inputLoop]: Error: "' + str(expt) +'"' *************THIS WILL BE MERGED LATER*************"""
+			print '[inputLoop]: Error: "' + str(expt) +'"' *************THIS WILL BE MERGED LATER************* """
 
 
 
@@ -148,8 +148,8 @@ while True:
 			out_socket.sendall(createMessage(1))
 			print "Sent message to:" + address[0]+str(address[1])
 			out_socket.shutdown(1) #Finished sending, now listening
-			msg=sock.recv(1024)
-			if msg != "": #Can potentialy be changed into (if msg == "": raise something)
+			msg = sock.recv(1024)
+			if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 			cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 			out_socket.shutdown(2)

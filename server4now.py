@@ -126,7 +126,7 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print "data message from:", addr
 		try:	
-			msg=sock.recv(1024)
+			msg = sock.recv(1024)
 			if msg == "":
 				raise ValueError(addr+" won't send any data")
 			cmd,nodes,blocks = parseMsg(msg)

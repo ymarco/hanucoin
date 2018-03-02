@@ -51,13 +51,13 @@ SELF_NODE=node(SELF_IP,TCP_PORT,"Lead",int(time.time()))
 class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string=string
-"""
+	"""
 	def __repr__(self):
 		return "cutstr object:"+repr(self.string)
 
 	def __eq__(self,other):
 		return other==self.string #works with pure strings and other cutstr objects.
-"""
+	"""
 	def __len__(self):
 		return len(self.string)
 								

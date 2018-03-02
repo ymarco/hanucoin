@@ -8,6 +8,7 @@ initColorama(autoreset=True)
 TCP_PORT= 8089
 SELF_IP = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
+#try to get ip and port from user input:
 try:
 	if sys.argv[1] == "public":
 		SELF_IP = urlopen('http://ip.42.pl/raw').read()
@@ -119,12 +120,12 @@ def createMessage(cmd_i):
 
 def updateByNodes(nodes):
 	global activeNodes, nodes_updated
-	for addr,node in nodes.iteritems(): #we also need to add a blacklist for 127.0.0.1
-		if currentTime - 30*60 < node.ts <= currentTime: #If it's not a message from the future or from more than 30 minutes ago
+	for addr,node in nodes.iteritems():  #							V--someone is trying to make us send msgs to ourselves 
+		if (currentTime - 30*60 < node.ts <= currentTime) and (node.host != '127.0.0.1') : #If it's not a message from the future or from more than 30 minutes ago ==>> that means that we ignore tal's old nodes, altho we need them
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
 				activeNodes[addr] = node
-			elif activeNodes[addr].ts < node.ts: #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
+			elif (activeNodes[addr].ts < node.ts) and (addr != '127.0.0.1') : #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
 
 
@@ -141,11 +142,11 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
 		try:	
-			msg = sock.recv(1<<20) #Mega Byte
-			if msg != "":
-				cmd,nodes,blocks = parseMsg(msg)
-			else:
+			msg = sock.recv(1<<20) #MegaByte
+			if msg == "":
 				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
+			else:
+				cmd,nodes,blocks = parseMsg(msg)
 			#if cmd!=1: raise ValueError("cmd=1 in input functuon!") | will be handled later with try,except
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
@@ -191,13 +192,14 @@ while True:
 				msg = out_socket.recv(1<<20) #Mega Byte
 				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				if msg != "": #***old comment: |#Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
+				if msg == "":
+					print Fore.MAGENTA+"[outputLoop]: got an empty reply from: " + strAddress(addr)
+				else:
 					cmd,nodes,blocks = parseMsg(msg)
-					#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
+					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
 					updateByNodes(nodes)
 					#updateByBlocks(blocks) #we dont do blocks for now
-				else:
-					print Fore.MAGENTA+"[outputLoop]: got an empty msg from: " + strAddress(addr)
+
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			except socket.error as err:

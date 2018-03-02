@@ -36,6 +36,7 @@ backup=open(BACKUP_FILE_NAME,"r+b")
 def strAddress(addressTuple):
 	return addressTuple[0]+":"+str(addressTuple[1])
 	#takes (ip,port) and returns "ip:port"
+
 class node:
 	def __init__(self,host,port,name,ts):
 		self.host = host
@@ -47,21 +48,21 @@ class node:
 
 SELF_NODE=node(SELF_IP,TCP_PORT,"Lead",int(time.time()))
 
-class cutstr:
+class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string=string
-
+"""
 	def __repr__(self):
 		return "cutstr object:"+repr(self.string)
 
 	def __eq__(self,other):
-		return other==self.string
-
+		return other==self.string #works with pure strings and other cutstr objects.
+"""
 	def __len__(self):
 		return len(self.string)
-
+								
 	def cut(self,bytes):
-		if bytes>len(self):
+		if bytes>len(self.string):
 			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece=self.string[:bytes]
@@ -113,7 +114,7 @@ def createMessage(cmd_i):
 
 	start_blocks= struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now, because
-	blocks 		= ''              		   #we don't mine for now	
+	blocks = ''              		   #we don't mine for now	
 		
 	return cmd + START_NODES + nodes_count + nodes + START_BLOCKS + block_count + blocks
 
@@ -172,25 +173,24 @@ while True:
 		print "file writing even has started."
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
-		backup.truncate() #delete anything left from the previous file
-		backup.flush()
-		periodicalBuffer = currentTime
-		SELF_NODE.ts = currentTime
+		backup.truncate() #delete anything left from the previous backup
+		backup.flush() #save information. IMPORTANT: should be moved to be run when existing program together with backup.close(), is temporiarly here for debugging.
+		periodicalBuffer = currentTime #Reset 5 min timer
+		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
-		nodes_updated = False
+		nodes_updated = False #Turn off the flag for triggering this very If nest.
 		print "sending event has started!"
-
-		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addres
-			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
+			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every adress. ***a better solution needs to be found
 			try:
 				out_socket.connect(addr)
 				out_socket.sendall(createMessage(1))
-				#out_socket.shutdown(1) Finished sending, now listening
+				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				msg = out_socket.recv(1<<20) #Mega Byte
-				out_socket.shutdown(2)
-				if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
+				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
+				if msg != "": #***old comment: |#Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 					cmd,nodes,blocks = parseMsg(msg)
 					#if cmd!=2: raise ValueError("cmd=2 in output function!") | will be handled later with try,except
 					updateByNodes(nodes)

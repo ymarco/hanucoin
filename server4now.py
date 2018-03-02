@@ -86,7 +86,6 @@ def parseMsg(msg):
 			port 	=struct.unpack(">H",msg.cut(2))[0]
 			ts 		=struct.unpack(">I",msg.cut(4))[0]
 			nodes[(host,port)]=node(host,port,name,ts)
-		print "nodes:",nodes
 		if msg.cut(4) != START_BLOCKS: 
 			raise ValueError("Wrong start_blocks")
 		block_count=struct.unpack(">I",msg.cut(4))[0]
@@ -159,7 +158,7 @@ def inputLoop():
 			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
-
+			print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
 
 threading.Thread(target = inputLoop).start() 
 

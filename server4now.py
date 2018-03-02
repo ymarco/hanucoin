@@ -11,7 +11,7 @@ BACKUP_FILE_NAME="backup.bin"
 
 try:
 	if sys.argv[1] == "public":
-		SELF_IP = urlopen('http://ip.42.pl/raw').read()
+		SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
 	elif sys.argv[1] == "local":
 		pass
 	else:
@@ -34,6 +34,7 @@ backup=open(BACKUP_FILE_NAME,"r+b")
 #socket.setdefaulttimeout(60)
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
+
 def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
 	#takes (ip,port) and returns "ip:port"
@@ -115,9 +116,9 @@ def createMessage(cmd,nodes_list,blocks):
 	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
 
 
-def updateByNodes(nodes):
+def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
-	for addr,node in nodes.iteritems(): #we also need to add a blacklist for 127.0.0.1
+	for addr,node in nodes_dict.iteritems(): #we also need to add a blacklist for 127.0.0.1
 		if currentTime - 30*60 < node.ts <= currentTime and addr!=(SELF_IP,SELF_PORT): #If it's not a message from the future or from more than 30 minutes ago
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
@@ -158,7 +159,7 @@ def inputLoop():
 			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
-
+#*****DEBUG*******
 def debugLoop(): #3rd thread for printing wanted variables.
 	while True:
 		try:
@@ -170,7 +171,7 @@ def debugLoop(): #3rd thread for printing wanted variables.
 
 debugThread=threading.Thread(target = debugLoop, name="debug")
 debugThread.start()
-
+#******************
 inputThread=threading.Thread(target = inputLoop, name="input")
 inputThread.start() 
 
@@ -193,7 +194,7 @@ while True:
 		print Fore.CYAN + "sending event has started"
 
 		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
-			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every adress. ***A better solution needs to be found
+			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
 				"[outputLoop]: sent " +str(out_socket.send(createMessage(2,activeNodes.values()+[SELF_NODE],[])))+ " bytes."
@@ -226,3 +227,9 @@ while True:
 	time.sleep(1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
+	#IDEA: mine coins on ax 3rd thread. threads are love, threads are life.
+
+#we will get here somehow, probably input:
+print "main thread ended, terminating program."
+backup.close()
+sys.exit(0)

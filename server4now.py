@@ -173,7 +173,7 @@ while True:
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
-		backup.flush() #save information. IMPORTANT: should be moved to be run when existing program together with backup.close(), is temporiarly here for debugging.
+		backup.flush() #save info. IMPORTANT: should be moved to be run when existing program together with backup.close(), is temporiarly here for debugging.
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 

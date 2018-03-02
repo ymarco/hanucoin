@@ -34,7 +34,7 @@ backup=open(BACKUP_FILE_NAME,"r+b")
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
 def strAddress(addressTuple):
-	return addressTuple[0]+":"+str(addressTuple[1])
+	return addressTuple[0]+": "+str(addressTuple[1])
 	#takes (ip,port) and returns "ip:port"
 class node:
 	def __init__(self,host,port,name,ts):
@@ -94,8 +94,7 @@ def parseMsg(msg):
 		for x in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:"
-		print err
+		print "Message too short, cut error:" + str(err)
 	return cmd ,nodes, blocks
 
 
@@ -157,7 +156,7 @@ def inputLoop():
 		except socket.error as err:
 			print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(addr, err) #Select will be added later
 		else:
-			print Fore.GREEN+"[InputLoop]: reply sent successfuly"
+			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
 
@@ -169,7 +168,7 @@ while True:
 	#DoSomeCoinMining() we'll do that later
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer:
-		print "file writing even has started."
+		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1)) #write in the new backup
 		backup.truncate() #delete anything left from the previous file
@@ -180,15 +179,17 @@ while True:
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False
-		print "sending event has started!"
+		print Fore.CYAN + "sending event has started"
 
 		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addres
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 			try:
 				out_socket.connect(addr)
 				out_socket.sendall(createMessage(1))
+				print Fore.GREEN + "[outputLoop]: sent a message to: " +strAddress(addr)
 				#out_socket.shutdown(1) Finished sending, now listening
 				msg = out_socket.recv(1<<20) #Mega Byte
+				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2)
 				if msg != "": #Can potentialy be changed into (if msg == "": raise something) #we can just add try and except to parseMsg
 					cmd,nodes,blocks = parseMsg(msg)
@@ -202,16 +203,16 @@ while True:
 			except socket.error as err:
 				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			else:
-				print Fore.GREEN+"[outputLoop]: Sent a message to: " + str(addr)
+				print Fore.GREEN+"[outputLoop]: Sent a message to: " + strAddress(addr)
 			finally:
 				out_socket.close()
 		#DELETE 30 MIN OLD NODES:
 		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
 			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:
-				print "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
+				print Fore.YELLOW + "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
 				del activeNodes[addr]
    		
-   		print "activeNodes: " + str(activeNodes.keys())
+   		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
 	time.sleep(1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability

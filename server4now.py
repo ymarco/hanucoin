@@ -121,7 +121,7 @@ def createMessage(cmd,nodes_list,blocks):
 def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	for addr,node in nodes_dict.iteritems(): 
-		if currentTime - 30*60 < node.ts <= currentTime and addr!=(SELF_IP,SELF_PORT) and addr[0]!=localhost: #If it's not a message from the future or from more than 30 minutes ago
+		if ((currentTime - 30*60) < node.ts <= currentTime) and (addr!=(SELF_IP,SELF_PORT)) and (addr[0]!=localhost) : #If it's not a message from the future or from more than 30 minutes ago
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
 				activeNodes[addr] = node
@@ -183,9 +183,9 @@ inputThread.start()
 
 while True:
 
-	#DoSomeCoinMining() we'll do that later
+	#DoSomeCoinMining() - we'll do that later
 	currentTime = int(time.time())
-	if currentTime - 5*60 >= periodicalBuffer:
+	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1,activeNodes.values(),[])) #write in the new backup
@@ -220,10 +220,13 @@ while True:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			except socket.error as err:
 				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
+			except Exception as err:
+				print Fore.RED+'[outputLoop]: Exception while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			else:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
 				out_socket.close()
+		time.sleep(5)
 		#DELETE 30 MIN OLD NODES:
 		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
 			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:

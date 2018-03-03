@@ -231,10 +231,7 @@ while True:
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			except socket.error as err:
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
-			except Exception as err:
-				print Fore.RED+'[outputLoop]: Exception while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
-			else:
+				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))			else:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
 				out_socket.close()

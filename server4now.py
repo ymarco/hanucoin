@@ -67,11 +67,11 @@ class cutstr: #String with a self.cut(bytes) method which works like file.read(b
 	def __init__(self,string):
 		self.string=string
 
-#	def __repr__(self):
-#		return "cutstr object:"+repr(self.string)
-#	
-#	def __eq__(self,other):
-#		return other==self.string #works with pure strings and other cutstr objects.
+	#def __repr__(self):
+	#	return "cutstr object:"+repr(self.string)
+
+	#def __eq__(self,other):
+	#	return other==self.string #works with pure strings and other cutstr objects.
 
 	def __len__(self):
 		return len(self.string)
@@ -93,7 +93,7 @@ def parseMsg(msg):
 		cmd = struct.unpack(">I",msg.cut(4))[0]
 		if msg.cut(4) != START_NODES: 
 			raise ValueError("Wrong start_nodes")
-		node_count = struct.unpack(">I",msg.cut(4))[0]
+		node_count 	= struct.unpack(">I",msg.cut(4))[0]
 		for x in xrange(node_count):
 			name_len=struct.unpack("B",msg.cut(1))[0]
 			name 	=msg.cut(name_len)
@@ -197,6 +197,18 @@ inputThread=threading.Thread(target = inputLoop, name="input")
 inputThread.daemon=True
 inputThread.start() 
 
+#getting nodes from tal:
+currentTime = int(time.time())
+out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+out_socket.connect(('34.244.16.40', 8080)) #TeamDebug
+out_msg = createMessage(1,activeNodes.values()+[SELF_NODE],[])
+out_socket.send(out_msg)
+in_msg = out_socket.recv(1<<20) #Mega Byte
+cmd,nodes,blocks = parseMsg(in_msg)
+updateByNodes(nodes)
+print activeNodes.keys()
+
+
 while True:
 
 	#DoSomeCoinMining() - we'll do that later
@@ -219,7 +231,7 @@ while True:
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
-				out_msg=createMessage(2,activeNodes.values()+[SELF_NODE],[])
+				out_msg=createMessage(1,activeNodes.values()+[SELF_NODE],[])
 				"[outputLoop]: sent " +str(out_socket.send(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = out_socket.recv(1<<20) #Mega Byte

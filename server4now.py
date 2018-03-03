@@ -1,13 +1,18 @@
 from urllib2 import urlopen
 from colorama import Fore,Back,Style
 from colorama import init as initColorama
-import threading, socket, hashspeed, time, struct, random, sys
+import threading, socket, hashspeed, time, struct, random, sys, atexit
 
 initColorama(autoreset=True)
 
 SELF_PORT= 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
+
+exit_event=threading.Event()
+atexit.register(exit_event.set)
+old_exit=exit
+exit=exit_event.set
 
 #try to get ip and port from user input:
 try:
@@ -165,8 +170,11 @@ def inputLoop():
 			sock.close()
 
 			print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
-
 #*****DEBUG*******
+def addNode(ip,port,name,ts):
+	global activeNodes
+	activeNodes.update({(ip,port):node(ip,port,name,ts)})
+
 def debugLoop(): #3rd thread for printing wanted variables.
 	while True:
 		try:
@@ -176,11 +184,12 @@ def debugLoop(): #3rd thread for printing wanted variables.
 		except Exception as err:
 			print err
 
-
 debugThread=threading.Thread(target = debugLoop, name="debug")
+debugThread.daemon=True
 debugThread.start()
 #******************
 inputThread=threading.Thread(target = inputLoop, name="input")
+inputThread.daemon=True
 inputThread.start() 
 
 while True:
@@ -234,7 +243,7 @@ while True:
 				del activeNodes[addr]
    		
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
-	time.sleep(1)  # we dont want the laptop to hang.
+	if exit_event.wait(1): break  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
 	#IDEA: mine coins on ax 3rd thread. threads are love, threads are life.
@@ -242,4 +251,4 @@ while True:
 #we will get here somehow, probably input:
 print "main thread ended, terminating program."
 backup.close()
-sys.exit(0)
+#sys.exit(0)

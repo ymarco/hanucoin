@@ -32,7 +32,7 @@ START_NODES = struct.pack(">I", 0xbeefbeef)
 START_BLOCKS = struct.pack(">I", 0xdeaddead)
 
 backup=open(BACKUP_FILE_NAME,"r+b")
-#socket.setdefaulttimeout(60)
+
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
 
@@ -135,6 +135,7 @@ _,activeNodes,__=parseMsg(backup.read()) #get nodes from backup file
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
+#socket.setdefaulttimeout(60) #All sockets except listen_socket need timeout.
 
 def inputLoop():
 	global db_lastBytes
@@ -143,15 +144,16 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
 		try:	
-			msg = sock.recv(1<<20) #MegaByte
-			if msg == "":
+			in_msg = sock.recv(1<<20) #MegaByte
+			if in_msg == "":
 				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
 			else:
-				cmd,nodes,blocks = parseMsg(msg)
+				cmd,nodes,blocks = parseMsg(in_msg)
 			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
-			print "[inputLoop]: sent " + str(sock.send(createMessage(2,activeNodes.values()+[SELF_NODE],[])))+ " bytes."
+			out_message=createMessage(2,activeNodes.values()+[SELF_NODE],[])
+			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 				#sock.shutdown(2)
 		except socket.timeout as err:
 			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
@@ -203,15 +205,16 @@ while True:
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
-				"[outputLoop]: sent " +str(out_socket.send(createMessage(2,activeNodes.values()+[SELF_NODE],[])))+ " bytes."
+				out_msg=createMessage(2,activeNodes.values()+[SELF_NODE],[])
+				"[outputLoop]: sent " +str(out_socket.send(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
-				msg = out_socket.recv(1<<20) #Mega Byte
+				in_msg = out_socket.recv(1<<20) #Mega Byte
 				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				if msg == "":
+				if in_msg == "":
 					print Fore.MAGENTA+"[outputLoop]: got an empty reply from: " + strAddress(addr)
 				else:
-					cmd,nodes,blocks = parseMsg(msg)
+					cmd,nodes,blocks = parseMsg(in_msg)
 					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
 					updateByNodes(nodes)
 					#updateByBlocks(blocks) #we dont do blocks for now

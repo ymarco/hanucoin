@@ -5,18 +5,19 @@ import threading, socket, hashspeed, time, Queue, struct, random, sys
 
 initColorama(autoreset=True)
 
-TCP_PORT= 8089
-SELF_IP = "127.0.0.1"
+SELF_PORT= 8089
+SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
+
 #try to get ip and port from user input:
 try:
 	if sys.argv[1] == "public":
-		SELF_IP = urlopen('http://ip.42.pl/raw').read()
+		SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
 	elif sys.argv[1] == "local":
 		pass
 	else:
 		SELF_IP = sys.argv[1]
-	TCP_PORT = int(sys.argv[2])
+	SELF_PORT = int(sys.argv[2])
 	BACKUP_FILE_NAME=sys.argv[3]
 except IndexError:
 	pass
@@ -34,6 +35,7 @@ backup=open(BACKUP_FILE_NAME,"r+b")
 #socket.setdefaulttimeout(60)
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
+
 def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
 	#takes (ip,port) and returns "ip:port"
@@ -47,21 +49,24 @@ class node:
 	def __eq__(self,other):
 		return self.__dict__ == other.__dict__
 
-SELF_NODE=node(SELF_IP,TCP_PORT,"Lead",int(time.time()))
+	def __repr__(self):
+		return repr(self.__dict__)
+
+SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",int(time.time()))
 
 class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string=string
-	"""
-	def __repr__(self):
-		return "cutstr object:"+repr(self.string)
 
-	def __eq__(self,other):
-		return other==self.string #works with pure strings and other cutstr objects.
-	"""
+#	def __repr__(self):
+#		return "cutstr object:"+repr(self.string)
+#	
+#	def __eq__(self,other):
+#		return other==self.string #works with pure strings and other cutstr objects.
+
 	def __len__(self):
 		return len(self.string)
-								
+									
 	def cut(self,bytes):
 		if bytes>len(self.string):
 			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
@@ -99,44 +104,40 @@ def parseMsg(msg):
 	return cmd ,nodes, blocks
 
 
-def createMessage(cmd_i):
-	global START_NODES, START_BLOCKS
-	
-	cmd = struct.pack(">I", cmd_i)
+def createMessage(cmd,nodes_list,blocks):
 
-	nodes_count=struct.pack(">I",len(activeNodes)+1)	
-	nodes = ''
-	for node in activeNodes.itervalues():
-		nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
+	parsed_cmd = struct.pack(">I", cmd)
+	nodes_count=struct.pack(">I",len(nodes_list))	
+	parsed_nodes = ''
+	for node in nodes_list:
+		parsed_nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 
-	nodes+=struct.pack("B",4) + "Lead" + struct.pack("B",len(SELF_IP)) + SELF_IP + struct.pack(">H",TCP_PORT) + struct.pack(">I", SELF_NODE.ts) #Add our node
-
-	start_blocks= struct.pack(">I", 0xdeaddead)
 	block_count = struct.pack(">I", 0) # 0 for now, because
-	blocks = ''              		   #we don't mine for now	
+	parsed_blocks = ''              		   #we don't mine for now	
 		
-	return cmd + START_NODES + nodes_count + nodes + START_BLOCKS + block_count + blocks
+	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
 
 
-def updateByNodes(nodes):
+def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
-	for addr,node in nodes.iteritems():  #							V--someone is trying to make us send msgs to ourselves 
-		if (currentTime - 30*60 < node.ts <= currentTime) and (node.host != '127.0.0.1') : #If it's not a message from the future or from more than 30 minutes ago ==>> that means that we ignore tal's old nodes, altho we need them
+	for addr,node in nodes_dict.iteritems(): 
+		if currentTime - 30*60 < node.ts <= currentTime and addr!=(SELF_IP,SELF_PORT) and addr[0]!=localhost: #If it's not a message from the future or from more than 30 minutes ago
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts) and (addr != '127.0.0.1') : #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
+	print "updated activeNodes:",activeNodes.keys()
 
-
-_,activeNodes,__=parseMsg(backup.read()) #get nodes from init file (backup.bin)
+_,activeNodes,__=parseMsg(backup.read()) #get nodes from backup file
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-listen_socket.bind(('', TCP_PORT))
+listen_socket.bind(('', SELF_PORT))
 
 
 def inputLoop():
+	global db_lastBytes
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
@@ -147,11 +148,11 @@ def inputLoop():
 				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
 			else:
 				cmd,nodes,blocks = parseMsg(msg)
-			#if cmd!=1: raise ValueError("cmd=1 in input functuon!") | will be handled later with try,except
+			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
-				sock.sendall(createMessage(2))
-				sock.shutdown(2)
+			print "[inputLoop]: sent " + str(sock.send(createMessage(2,activeNodes.values()+[SELF_NODE],[])))+ " bytes."
+				#sock.shutdown(2)
 		except socket.timeout as err:
 			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
 		except socket.error as err:
@@ -160,9 +161,25 @@ def inputLoop():
 			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
+
 			print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
 
-threading.Thread(target = inputLoop).start() 
+#*****DEBUG*******
+def debugLoop(): #3rd thread for printing wanted variables.
+	while True:
+		try:
+			inpt=raw_input(">")
+			exec inpt
+
+		except Exception as err:
+			print err
+
+
+debugThread=threading.Thread(target = debugLoop, name="debug")
+debugThread.start()
+#******************
+inputThread=threading.Thread(target = inputLoop, name="input")
+inputThread.start() 
 
 while True:
 
@@ -171,7 +188,7 @@ while True:
 	if currentTime - 5*60 >= periodicalBuffer:
 		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
-		backup.write(createMessage(1)) #write in the new backup
+		backup.write(createMessage(1,activeNodes.values(),[])) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
 		backup.flush() #save info. IMPORTANT: should be moved to be run when existing program together with backup.close(), is temporiarly here for debugging.
 		periodicalBuffer = currentTime #Reset 5 min timer
@@ -183,11 +200,10 @@ while True:
 		print Fore.CYAN + "sending event has started"
 
 		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
-			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every adress. ***A better solution needs to be found
+			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
-				out_socket.sendall(createMessage(1))
-				print Fore.GREEN + "[outputLoop]: sent a message to: " +strAddress(addr)
+				"[outputLoop]: sent " +str(out_socket.send(createMessage(2,activeNodes.values()+[SELF_NODE],[])))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				msg = out_socket.recv(1<<20) #Mega Byte
 				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
@@ -205,7 +221,7 @@ while True:
 			except socket.error as err:
 				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			else:
-				print Fore.GREEN+"[outputLoop]: Sent a message to: " + strAddress(addr)
+				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
 				out_socket.close()
 		#DELETE 30 MIN OLD NODES:
@@ -218,3 +234,9 @@ while True:
 	time.sleep(1)  # we dont want the laptop to hang.
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
+	#IDEA: mine coins on ax 3rd thread. threads are love, threads are life.
+
+#we will get here somehow, probably input:
+print "main thread ended, terminating program."
+backup.close()
+sys.exit(0)

@@ -1,7 +1,7 @@
 from urllib2 import urlopen
 from colorama import Fore,Back,Style
 from colorama import init as initColorama
-import threading, socket, hashspeed, time, Queue, struct, random, sys
+import threading, socket, hashspeed, time, struct, random, sys
 
 initColorama(autoreset=True)
 

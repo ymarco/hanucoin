@@ -231,11 +231,10 @@ while True:
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			except socket.error as err:
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))			else:
+				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))				else:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
 				out_socket.close()
-		time.sleep(5)
 		#DELETE 30 MIN OLD NODES:
 		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
 			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:

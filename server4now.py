@@ -125,8 +125,8 @@ def updateByNodes(nodes_dict):
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
 				activeNodes[addr] = node
-			elif (activeNodes[addr].ts < node.ts) and (addr != '127.0.0.1') : #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
-					activeNodes[addr].ts = node.ts #the node was seen earlier than what we have in activeNodes, so we update the ts
+			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
+					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
 	print "updated activeNodes:",activeNodes.keys()
 
 _,activeNodes,__=parseMsg(backup.read()) #get nodes from backup file

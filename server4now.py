@@ -5,14 +5,17 @@ import threading, socket, hashspeed, time, struct, random, sys, atexit
 
 initColorama(autoreset=True)
 
-SELF_PORT= 8089
-SELF_IP = localhost = "127.0.0.1"
-BACKUP_FILE_NAME="backup.bin"
-
+#Exit event for terminating program (call exit() or exit_event.set()):
 exit_event=threading.Event()
 atexit.register(exit_event.set)
 old_exit=exit
 exit=exit_event.set
+
+
+#Default values:
+SELF_PORT = 8089
+SELF_IP = localhost = "127.0.0.1"
+BACKUP_FILE_NAME="backup.bin"
 
 #try to get ip and port from user input:
 try:
@@ -32,9 +35,10 @@ periodicalBuffer = sendBuffer = int(time.time())
 periodicalBuffer -= (4*60+0.4*60)
 sendBuffer -= (4*60+0.6*60)
 #************************
-nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
-START_NODES = struct.pack(">I", 0xbeefbeef)
-START_BLOCKS = struct.pack(">I", 0xdeaddead)
+nodes_updated = False #flag for when a new node is added.
+START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
+START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
+
 
 backup=open(BACKUP_FILE_NAME,"r+b")
 
@@ -105,7 +109,7 @@ def parseMsg(msg):
 		for x in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:" + str(err)
+		print "Message too short, cut error:" + err
 	return cmd ,nodes, blocks
 
 
@@ -161,16 +165,18 @@ def inputLoop():
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 				#sock.shutdown(2)
 		except socket.timeout as err:
-			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
+			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:
-			print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(addr, err) #Select will be added later
-		else:
+			print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
+		except ValueError as err:
+			print Fore.MAGENTA+ '[inputLoop]: got an invalid data msg from {}: {}'.format(strAddress(addr),err)
+ 		else:
 			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
 
 			print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
-#*****DEBUG*******
+#>*****DEBUG*******
 def addNode(ip,port,name,ts):
 	global activeNodes
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
@@ -183,11 +189,10 @@ def debugLoop(): #3rd thread for printing wanted variables.
 
 		except Exception as err:
 			print err
-
 debugThread=threading.Thread(target = debugLoop, name="debug")
 debugThread.daemon=True
 debugThread.start()
-#******************
+#******************<
 inputThread=threading.Thread(target = inputLoop, name="input")
 inputThread.daemon=True
 inputThread.start() 
@@ -229,10 +234,12 @@ while True:
 					#updateByBlocks(blocks) #we dont do blocks for now
 
 			except socket.timeout as err:
-				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
+				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
 			except socket.error as err:
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))				else:
+				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)				else:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
+			except ValueError as err:
+				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
 			finally:
 				out_socket.close()
 		#DELETE 30 MIN OLD NODES:

@@ -200,10 +200,11 @@ inputThread.start()
 #getting nodes from tal:
 currentTime = int(time.time())
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect(('34.244.16.40', 8080)) #TeamDebug
+out_socket.connect(('34.244.16.40', 8080)) #Tal's main server
 out_msg = createMessage(1,activeNodes.values()+[SELF_NODE],[])
 out_socket.send(out_msg)
 in_msg = out_socket.recv(1<<20) #Mega Byte
+out_socket.close()
 cmd,nodes,blocks = parseMsg(in_msg)
 updateByNodes(nodes)
 print activeNodes.keys()
@@ -248,10 +249,11 @@ while True:
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
 			except socket.error as err:
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)				else:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
+				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)
 			except ValueError as err:
 				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
+			else:
+				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
 				out_socket.close()
 		#DELETE 30 MIN OLD NODES:
@@ -265,7 +267,7 @@ while True:
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
 	#IDEA: mine coins on ax 3rd thread. threads are love, threads are life.
-
+	#BUG: for some reason the program was only terminated when the sending events started (i callled exit() about a minute before that)
 #we will get here somehow, probably input:
 print "main thread ended, terminating program."
 backup.close()

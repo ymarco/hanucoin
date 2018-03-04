@@ -1,15 +1,9 @@
 from urllib2 import urlopen
-from colorama import Fore,Back,Style
-from colorama import init as initColorama
+from colorama import Fore,Back,Style,init as initColorama
 import threading, socket, hashspeed, time, struct, random, sys, atexit
 
 initColorama(autoreset=True)
 
-SELF_WALLET = hashspeed.WalletCode([yoav, maayan, itzik]) #the order doesnt matter, it gets sorted - look at hashspeed.py
-SELF_PORT= 8089
-SELF_IP = localhost = "127.0.0.1"
-BACKUP_FILE_NAME="backup.bin"
-currentTime = int(time.time())
 
 #Exit event for terminating program (call exit() or exit_event.set()):
 exit_event=threading.Event()
@@ -17,12 +11,13 @@ atexit.register(exit_event.set)
 old_exit=exit
 exit=exit_event.set
 
-
 #Default values:
+SELF_WALLET = hashspeed.WalletCode([yoav, maayan, itzik]) #the order doesnt matter, it gets sorted - look at hashspeed.py
 SELF_PORT = 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
-
+currentTime = int(time.time())
+TEAM_NAME="Lead"
 #try to get ip and port from user input:
 try:
 	if sys.argv[1] == "public":
@@ -33,6 +28,7 @@ try:
 		SELF_IP = sys.argv[1]
 	SELF_PORT = int(sys.argv[2])
 	BACKUP_FILE_NAME=sys.argv[3]
+	TEAM_NAME=sys.argv[4]
 except IndexError:
 	pass
 
@@ -48,6 +44,7 @@ START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparin
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 
 backup=open(BACKUP_FILE_NAME,"r+b")
+activeNodes={}
 
 
 
@@ -67,7 +64,7 @@ class node:
 	def __repr__(self):
 		return repr(self.__dict__)
 
-SELF_NODE=node(SELF_IP,SELF_PORT,"LEAD",currentTime)
+SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",currentTime)
 
 class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -119,7 +116,7 @@ def parseMsg(msg):
 	return cmd ,nodes, blocks
 
 
-def createMessage(cmd,nodes_list,blocks):
+def createMsg(cmd,nodes_list,blocks):
 
 	parsed_cmd = struct.pack(">I", cmd)
 	nodes_count=struct.pack(">I",len(nodes_list))	
@@ -136,7 +133,7 @@ def createMessage(cmd,nodes_list,blocks):
 def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	for addr,node in nodes_dict.iteritems(): 
-		if ((currentTime - 30*60) < node.ts <= currentTime) and (addr!=(SELF_IP,SELF_PORT)) and (addr[0]!=localhost) : #If it's not a message from the future or from more than 30 minutes ago	
+		if ((currentTime - 30*60) < node.ts <= currentTime) and localhost!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
 			print "updated activeNodes:",activeNodes.keys()
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
@@ -144,6 +141,7 @@ def updateByNodes(nodes_dict):
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
 
+<<<<<<< HEAD
 def updateByBlocks(block_list_in)
 	#returns True if updated blocksList, else - False
 	global blocksList
@@ -159,15 +157,18 @@ def addNode(ip,port,name,ts):
 
 
 _,activeNodes,__=parseMsg(backup.read()) #get nodes from backup file
+=======
+_,BACKUP_NODES,__=parseMsg(backup.read()) #get nodes from backup file
+updateByNodes(BACKUP_NODES)
+>>>>>>> f3b2632ea29b9b568f05efc7dbe03bd181f5c0d9
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-#socket.setdefaulttimeout(60) #All sockets except listen_socket need timeout.
+socket.setdefaulttimeout(30) #All sockets except listen_socket need timeout. may be too short
 
 def inputLoop():
-	global db_lastBytes
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
@@ -182,7 +183,7 @@ def inputLoop():
 				updateByNodes(nodes)
 				updateByBlocks(blocks)
 			#updateByBlocks(blocks)
-			out_message=createMessage(2,activeNodes.values()+[SELF_NODE],[])
+			out_message=createMsg(2,activeNodes.values()+[SELF_NODE],[])
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 				#sock.shutdown(2)
 		except socket.timeout as err:
@@ -212,6 +213,7 @@ def miningLoop():
 
 
 def debugLoop(): #3rd thread for printing wanted variables.
+	global sendBuffer,periodicalBuffer,activeNodes,currentTime
 	while True:
 		try:
 			inpt=raw_input(">")
@@ -237,7 +239,11 @@ inputThread.start()
 #				getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
+<<<<<<< HEAD
 out_msg = createMessage(1,activeNodes.values()+[SELF_NODE],blocksList)
+=======
+out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
+>>>>>>> f3b2632ea29b9b568f05efc7dbe03bd181f5c0d9
 print "sent {} bytes to tal".format(out_socket.send(out_msg))
 in_msg = out_socket.recv(1<<20) #Mega Byte
 out_socket.close()
@@ -257,9 +263,13 @@ while True:
 	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
+<<<<<<< HEAD
 		backup.write(createMessage(1,activeNodes.values(),blocksList)) #write in the new backup
+=======
+		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
+>>>>>>> f3b2632ea29b9b568f05efc7dbe03bd181f5c0d9
 		backup.truncate() #delete anything left from the previous backup
-		backup.flush() #save info. IMPORTANT: should be moved to be run when existing program together with backup.close(), is temporiarly here for debugging.
+		backup.flush() #save info.
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
@@ -272,7 +282,11 @@ while True:
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
+<<<<<<< HEAD
 				out_msg=createMessage(1,activeNodes.values()+[SELF_NODE],blocksList)
+=======
+				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],[])
+>>>>>>> f3b2632ea29b9b568f05efc7dbe03bd181f5c0d9
 				"[outputLoop]: sent " +str(out_socket.send(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = out_socket.recv(1<<20) #Mega Byte
@@ -304,7 +318,7 @@ while True:
 				del activeNodes[addr]
    		
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
-	if exit_event.wait(1): break  # we dont want the laptop to hang.
+	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
 	#BUG: for some reason the program was only terminated when the sending events started (i callled exit() about a minute before that)

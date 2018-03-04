@@ -8,6 +8,7 @@ initColorama(autoreset=True)
 SELF_PORT= 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
+currentTime = int(time.time())
 
 exit_event=threading.Event()
 atexit.register(exit_event.set)
@@ -57,7 +58,7 @@ class node:
 	def __repr__(self):
 		return repr(self.__dict__)
 
-SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",int(time.time()))
+SELF_NODE=node(SELF_IP,SELF_PORT,"LEAD",currentTime)
 
 class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -193,9 +194,8 @@ inputThread.daemon=True
 inputThread.start() 
 
 #getting nodes from tal:
-currentTime = int(time.time())
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect(('34.244.16.40', 8080)) #TeamDebug
+out_socket.connect(('79.179.1.120', 7861)) #TeamDebug
 out_msg = createMessage(1,activeNodes.values()+[SELF_NODE],[])
 out_socket.send(out_msg)
 in_msg = out_socket.recv(1<<20) #Mega Byte
@@ -243,7 +243,8 @@ while True:
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
 			except socket.error as err:
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))				else:
+				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))			
+			else:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
 				out_socket.close()

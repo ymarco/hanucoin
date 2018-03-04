@@ -5,15 +5,23 @@ import threading, socket, hashspeed, time, struct, random, sys, atexit
 
 initColorama(autoreset=True)
 
+
 SELF_PORT= 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
 currentTime = int(time.time())
 
+#Exit event for terminating program (call exit() or exit_event.set()):
 exit_event=threading.Event()
 atexit.register(exit_event.set)
 old_exit=exit
 exit=exit_event.set
+
+
+#Default values:
+SELF_PORT = 8089
+SELF_IP = localhost = "127.0.0.1"
+BACKUP_FILE_NAME="backup.bin"
 
 #try to get ip and port from user input:
 try:
@@ -33,9 +41,10 @@ periodicalBuffer = sendBuffer = int(time.time())
 periodicalBuffer -= (4*60+0.4*60)
 sendBuffer -= (4*60+0.6*60)
 #************************
-nodes_updated = False #goes True when we find a new node, then turns back off - look in #EVERY 5 MIN
-START_NODES = struct.pack(">I", 0xbeefbeef)
-START_BLOCKS = struct.pack(">I", 0xdeaddead)
+nodes_updated = False #flag for when a new node is added.
+START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
+START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
+
 
 backup=open(BACKUP_FILE_NAME,"r+b")
 
@@ -106,7 +115,7 @@ def parseMsg(msg):
 		for x in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:" + str(err)
+		print "Message too short, cut error:" + err
 	return cmd ,nodes, blocks
 
 
@@ -127,13 +136,13 @@ def createMessage(cmd,nodes_list,blocks):
 def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	for addr,node in nodes_dict.iteritems(): 
-		if ((currentTime - 30*60) < node.ts <= currentTime) and (addr!=(SELF_IP,SELF_PORT)) and (addr[0]!=localhost) : #If it's not a message from the future or from more than 30 minutes ago
+		if ((currentTime - 30*60) < node.ts <= currentTime) and (addr!=(SELF_IP,SELF_PORT)) and (addr[0]!=localhost) : #If it's not a message from the future or from more than 30 minutes ago	
+			print "updated activeNodes:",activeNodes.keys()
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
-	print "updated activeNodes:",activeNodes.keys()
 
 _,activeNodes,__=parseMsg(backup.read()) #get nodes from backup file
 
@@ -162,16 +171,18 @@ def inputLoop():
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 				#sock.shutdown(2)
 		except socket.timeout as err:
-			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(addr, err)
+			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:
-			print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(addr, err) #Select will be added later
-		else:
+			print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
+		except ValueError as err:
+			print Fore.MAGENTA+ '[inputLoop]: got an invalid data msg from {}: {}'.format(strAddress(addr),err)
+ 		else:
 			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
 
 			print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
-#*****DEBUG*******
+#>*****DEBUG*******
 def addNode(ip,port,name,ts):
 	global activeNodes
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
@@ -184,21 +195,22 @@ def debugLoop(): #3rd thread for printing wanted variables.
 
 		except Exception as err:
 			print err
-
 debugThread=threading.Thread(target = debugLoop, name="debug")
 debugThread.daemon=True
 debugThread.start()
-#******************
+#******************<
 inputThread=threading.Thread(target = inputLoop, name="input")
 inputThread.daemon=True
 inputThread.start() 
 
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect(('79.179.1.120', 7861)) #TeamDebug
+
+out_socket.connect(('34.244.16.40', 8080)) #Tal's main server
 out_msg = createMessage(1,activeNodes.values()+[SELF_NODE],[])
-out_socket.send(out_msg)
+print "sent {} bytes to tal".format(out_socket.send(out_msg))
 in_msg = out_socket.recv(1<<20) #Mega Byte
+out_socket.close()
 cmd,nodes,blocks = parseMsg(in_msg)
 updateByNodes(nodes)
 print activeNodes.keys()
@@ -241,9 +253,12 @@ while True:
 					#updateByBlocks(blocks) #we dont do blocks for now
 
 			except socket.timeout as err:
-				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), str(err))
+				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
 			except socket.error as err:
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), str(err))			
+
+				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)
+			except ValueError as err:
+				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
 			else:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
@@ -259,7 +274,7 @@ while True:
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
 	#IDEA: mine coins on ax 3rd thread. threads are love, threads are life.
-
+	#BUG: for some reason the program was only terminated when the sending events started (i callled exit() about a minute before that)
 #we will get here somehow, probably input:
 print "main thread ended, terminating program."
 backup.close()

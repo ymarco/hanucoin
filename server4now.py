@@ -40,6 +40,7 @@ START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparin
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 
 backup=open(BACKUP_FILE_NAME,"r+b")
+activeNodes={}
 
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''

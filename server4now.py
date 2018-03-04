@@ -15,7 +15,7 @@ SELF_PORT = 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
 currentTime = int(time.time())
-
+TEAM_NAME="Lead"
 #try to get ip and port from user input:
 try:
 	if sys.argv[1] == "public":
@@ -26,6 +26,7 @@ try:
 		SELF_IP = sys.argv[1]
 	SELF_PORT = int(sys.argv[2])
 	BACKUP_FILE_NAME=sys.argv[3]
+	TEAM_NAME=sys.argv[4]
 except IndexError:
 	pass
 
@@ -111,7 +112,7 @@ def parseMsg(msg):
 	return cmd ,nodes, blocks
 
 
-def createMessage(cmd,nodes_list,blocks):
+def createMsg(cmd,nodes_list,blocks):
 
 	parsed_cmd = struct.pack(">I", cmd)
 	nodes_count=struct.pack(">I",len(nodes_list))	
@@ -136,16 +137,16 @@ def updateByNodes(nodes_dict):
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
 
-_,activeNodes,__=parseMsg(backup.read()) #get nodes from backup file
+_,BACKUP_NODES,__=parseMsg(backup.read()) #get nodes from backup file
+updateByNodes(BACKUP_NODES)
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-#socket.setdefaulttimeout(60) #All sockets except listen_socket need timeout.
+socket.setdefaulttimeout(30) #All sockets except listen_socket need timeout. may be too short
 
 def inputLoop():
-	global db_lastBytes
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
@@ -159,7 +160,7 @@ def inputLoop():
 			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
-			out_message=createMessage(2,activeNodes.values()+[SELF_NODE],[])
+			out_message=createMsg(2,activeNodes.values()+[SELF_NODE],[])
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 				#sock.shutdown(2)
 		except socket.timeout as err:
@@ -200,7 +201,7 @@ inputThread.start()
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
 out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
-out_msg = createMessage(1,activeNodes.values()+[SELF_NODE],[])
+out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
 print "sent {} bytes to tal".format(out_socket.send(out_msg))
 in_msg = out_socket.recv(1<<20) #Mega Byte
 out_socket.close()
@@ -216,7 +217,7 @@ while True:
 	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
-		backup.write(createMessage(1,activeNodes.values(),[])) #write in the new backup
+		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
 		backup.flush() #save info.
 		periodicalBuffer = currentTime #Reset 5 min timer
@@ -231,7 +232,7 @@ while True:
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
-				out_msg=createMessage(1,activeNodes.values()+[SELF_NODE],[])
+				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],[])
 				"[outputLoop]: sent " +str(out_socket.send(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = out_socket.recv(1<<20) #Mega Byte

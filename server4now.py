@@ -1,15 +1,8 @@
 from urllib2 import urlopen
-from colorama import Fore,Back,Style
-from colorama import init as initColorama
+from colorama import Fore,Back,Style,init as initColorama
 import threading, socket, hashspeed, time, struct, random, sys, atexit
 
 initColorama(autoreset=True)
-
-
-SELF_PORT= 8089
-SELF_IP = localhost = "127.0.0.1"
-BACKUP_FILE_NAME="backup.bin"
-currentTime = int(time.time())
 
 #Exit event for terminating program (call exit() or exit_event.set()):
 exit_event=threading.Event()
@@ -17,11 +10,11 @@ atexit.register(exit_event.set)
 old_exit=exit
 exit=exit_event.set
 
-
 #Default values:
 SELF_PORT = 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
+currentTime = int(time.time())
 
 #try to get ip and port from user input:
 try:
@@ -45,7 +38,6 @@ nodes_updated = False #flag for when a new node is added.
 START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 
-
 backup=open(BACKUP_FILE_NAME,"r+b")
 
 #teamname = hashspeed.somethingWallet(lead)
@@ -67,7 +59,7 @@ class node:
 	def __repr__(self):
 		return repr(self.__dict__)
 
-SELF_NODE=node(SELF_IP,SELF_PORT,"LEAD",currentTime)
+SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",currentTime)
 
 class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -136,7 +128,7 @@ def createMessage(cmd,nodes_list,blocks):
 def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	for addr,node in nodes_dict.iteritems(): 
-		if ((currentTime - 30*60) < node.ts <= currentTime) and (addr!=(SELF_IP,SELF_PORT)) and (addr[0]!=localhost) : #If it's not a message from the future or from more than 30 minutes ago	
+		if ((currentTime - 30*60) < node.ts <= currentTime) and localhost!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
 			print "updated activeNodes:",activeNodes.keys()
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
@@ -188,6 +180,7 @@ def addNode(ip,port,name,ts):
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
 
 def debugLoop(): #3rd thread for printing wanted variables.
+	global sendBuffer,periodicalBuffer,activeNodes,currentTime
 	while True:
 		try:
 			inpt=raw_input(">")
@@ -225,7 +218,7 @@ while True:
 		backup.seek(0) #go to the start of the file
 		backup.write(createMessage(1,activeNodes.values(),[])) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
-		backup.flush() #save info. IMPORTANT: should be moved to be run when existing program together with backup.close(), is temporiarly here for debugging.
+		backup.flush() #save info.
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
@@ -270,7 +263,7 @@ while True:
 				del activeNodes[addr]
    		
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
-	if exit_event.wait(1): break  # we dont want the laptop to hang.
+	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 	#IDEA: mine coins with an iterator for 'freezing' ability
 	#IDEA: mine coins on ax 3rd thread. threads are love, threads are life.

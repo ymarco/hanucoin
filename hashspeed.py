@@ -59,7 +59,7 @@ def CreateBlock0_TestStage():
 
 
 
-def CheckSignature(sig, n_zeros):
+def CheckSignature(sig, n_zeros): #used only in CheckBlockSignature()
     # check tha last n_zeros bits of signature.
     # look at them byte by bye (8 bits together)
     sig_index = 15  # look at last byte
@@ -93,7 +93,7 @@ def CheckBlockSignature(serial, wallet, prev_sig, puzzle, block_sig):
         return 5
     return 0
 
-def unpack_clock_to_tuple(block_bin):
+def unpack_block_to_tuple(block_bin):#used only in other funcs
     return struct.unpack(">LL8sL12s", block_bin)
 
 def IsValidBlock(prev_block_bin, block_bin):
@@ -105,7 +105,10 @@ def IsValidBlock(prev_block_bin, block_bin):
     return IsValidBlockUnpacked(prev_block, block)
 
 
-def IsValidBlockUnpacked(prev_block_tuple, block_tuple):
+def IsValidBlock(prev_block_bin, block_bin):
+    """returns 0 if block is valid, else returns issue num: see below """
+    block_tuple = unpack_block_to_tuple(block_bin)
+    prev_block_tuple = unpack_block_to_tuple(prev_block_bin)
     # check serial number
     if block_tuple[0] != prev_block_tuple[0] + 1:
         return 1
@@ -120,15 +123,14 @@ def IsValidBlockUnpacked(prev_block_tuple, block_tuple):
 
 
 def MineCoinAttempts(my_wallet, prev_block_bin, attempts_count):
-    prev_block = struct.unpack(">LL8sL12s", prev_block_bin)
+    prev_block = unpack_block_to_tuple(prev_block_bin)
     serial, w, prev_prev_sig, prev_puzzle, prev_sig  = prev_block
     new_serial = serial + 1
     prev_half = prev_sig[:8]
     n_zeros = NumberOfZerosForPuzzle(new_serial)
-    for _ in xrange(attempts_count):
-        puzzle = random.randint(0, 1<<32 - 1)
-        #print new_serial, my_wallet, prev_half, puzzle
-        block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, puzzle)
+    for try_puzzle in xrange(attempts_count):
+        #print new_serial, my_wallet, prev_half, try_puzzle
+        block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, try_puzzle)
         m = hashlib.md5()
         m.update(block_bin)
         sig = m.digest()

@@ -94,7 +94,7 @@ def parseMsg(msg):
 		if msg.cut(4) != START_NODES: 
 			raise ValueError("Wrong start_nodes")
 		node_count 	= struct.unpack(">I",msg.cut(4))[0]
-		for x in xrange(node_count):
+		for _ in xrange(node_count):
 			name_len=struct.unpack("B",msg.cut(1))[0]
 			name 	=msg.cut(name_len)
 			host_len=struct.unpack("B",msg.cut(1))[0]
@@ -102,14 +102,16 @@ def parseMsg(msg):
 			port 	=struct.unpack(">H",msg.cut(2))[0]
 			ts 		=struct.unpack(">I",msg.cut(4))[0]
 			nodes[(host,port)]=node(host,port,name,ts)
+
 		if msg.cut(4) != START_BLOCKS: 
 			raise ValueError("Wrong start_blocks")
 		block_count=struct.unpack(">I",msg.cut(4))[0]
 		print "block_count:", block_count
-		for x in xrange(block_count):
+		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
 		print "Message too short, cut error:" + err
+		blocks=[]
 	return cmd ,nodes, blocks
 
 

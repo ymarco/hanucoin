@@ -12,7 +12,7 @@ old_exit=exit
 exit=exit_event.set
 
 #Default values:
-SELF_WALLET = hashspeed.WalletCode([yoav, maayan, itzik]) #the order doesnt matter, it gets sorted - look at hashspeed.py
+SELF_WALLET = hashspeed.WalletCode(["yoav", "maayan", "itzik"]) #the order doesnt matter, it gets sorted - look at hashspeed.py
 SELF_PORT = 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
@@ -143,7 +143,7 @@ def updateByNodes(nodes_dict):
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
 
-def updateByBlocks(block_list_in)
+def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
 	global blocksList
 	#check if (list is more updated than ours) and (last 3 blocks are valid)

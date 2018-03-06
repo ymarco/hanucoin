@@ -109,7 +109,9 @@ def parseMsg(msg):
 		for x in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:" + err
+		print "Message too short, cut error:",err
+		print "(at node/block number {})".format(str(x))
+		#blocks=[]
 	return cmd ,nodes, blocks
 
 
@@ -231,6 +233,7 @@ while True:
 
 		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
+			print "[outputLoop]: trying to send {} a message:".format(addr)
 			try:
 				out_socket.connect(addr)
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],[])

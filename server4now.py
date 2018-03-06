@@ -45,7 +45,7 @@ START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to th
 
 backup=open(BACKUP_FILE_NAME,"r+b")
 activeNodes={}
-
+blocksList = []
 
 
 def strAddress(addressTuple):
@@ -113,7 +113,7 @@ def parseMsg(msg):
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:" + err
+		print "Message too short, cut error:", err
 		blocks=[]
 	return cmd ,nodes, blocks
 
@@ -126,8 +126,10 @@ def createMsg(cmd,nodes_list,blocks):
 	for node in nodes_list:
 		parsed_nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 
-	block_count = struct.pack(">I", 0) # 0 for now, because
-	parsed_blocks = ''              		   #we don't mine for now	
+	block_count = struct.pack(">I", len(blocks))
+	parsed_blocks = ''
+	for block in blocks:
+		 parsed_blocks += block     		   	
 		
 	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
 
@@ -136,7 +138,6 @@ def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	for addr,node in nodes_dict.iteritems(): 
 		if ((currentTime - 30*60) < node.ts <= currentTime) and localhost!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
-			print "updated activeNodes:",activeNodes.keys()
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
 				activeNodes[addr] = node
@@ -146,8 +147,8 @@ def updateByNodes(nodes_dict):
 def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
 	global blocksList
-	#check if (list is more updated than ours) and (last 3 blocks are valid)
-	if (len(blocksList) < len(block_list_in)) and (hashspeed.IsValidBlock(block_list_in[-2],block_list_in[-1]) is 0) and (hashspeed.IsValidBlock(blocksList[-1],block_list_in[len(blocksList)]) is 0):
+	#check if (list is more updated than ours) and (the lists are connected)
+	if (len(blocksList) < len(block_list_in)) and (hashspeed.IsValidBlock(block_list_in[-2],block_list_in[-1]) is 0) and (hashspeed.IsValidBlock(blocksList[-1],block_list_in[len(blocksList+1)]) is 0):
 		blocksList = block_list
 		return True
 	return False
@@ -178,7 +179,7 @@ def inputLoop():
 				updateByNodes(nodes)
 				updateByBlocks(blocks)
 			#updateByBlocks(blocks)
-			out_message=createMsg(2,activeNodes.values()+[SELF_NODE],[])
+			out_message=createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 				#sock.shutdown(2)
 		except socket.timeout as err:
@@ -225,36 +226,42 @@ inputThread.start()
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-print "sent {} bytes to tal".format(out_socket.send(out_msg))
+print "sent {} bytes to TeamDebug".format(out_socket.send(out_msg))
 in_msg = out_socket.recv(1<<20) #Mega Byte
 out_socket.close()
 cmd, nodes, blocksList = parseMsg(in_msg)
 updateByNodes(nodes)
-print Fore.CYAN + activeNodes.keys()
+print Fore.CYAN , activeNodes.keys()
 
 def miningLoop():
-	global blocksList
+	global blocksList, nodes_updated
 	while True:
-		new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1]) #would take some time
-		if new_block is None:
-			print Fore.YELLOW + "[miningLoop]: mining attempt failed, trying again"
+		if blocksList:
+			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1]) #would take some time
+			if new_block is None:
+				print Fore.YELLOW + "[miningLoop]: mining attempt failed, trying again"
+			else:
+				print Fore.GREEN + "[miningLoop]: mining attempt succeeded"
+				blocksList += new_block
+				nodes_updated = True
 		else:
-			blocksList += new_block
+			print Fore.YELLOW + "[miningLoop]: blockList is empty"
+			time.sleep(2*60) #wait for 2 min
+
 
 miningThread=threading.Thread(target = miningLoop, name="mining")
 miningThread.daemon=True
-inputThread.start() 
+miningThread.start() 
 
 while True:
 
-	#DoSomeCoinMining() - we'll do that later
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
-		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
 		backup.write(createMsg(1,activeNodes.values(),blocksList)) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
 		backup.flush() #save info.
+		print Fore.CYAN + "file backup is done"
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
@@ -267,11 +274,10 @@ while True:
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
-				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
+				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE], blocksList)
 				"[outputLoop]: sent " +str(out_socket.send(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = out_socket.recv(1<<20) #Mega Byte
-				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				if in_msg == "":
 					print Fore.MAGENTA+"[outputLoop]: got an empty reply from: " + strAddress(addr)
@@ -301,7 +307,6 @@ while True:
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
-	#IDEA: mine coins with an iterator for 'freezing' ability
 	#BUG: for some reason the program was only terminated when the sending events started (i callled exit() about a minute before that)
 #we will get here somehow, probably input:
 print "main thread ended, terminating program."

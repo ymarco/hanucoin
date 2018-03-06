@@ -110,8 +110,9 @@ def parseMsg(msg):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
 		print "Message too short, cut error:",err
-		print "(at node/block number {})".format(str(x))
+		print "(at node/block number {})".format(x)
 		#blocks=[]
+	print "parsed nodes from the addresses:",nodes.keys()
 	return cmd ,nodes, blocks
 
 
@@ -139,7 +140,9 @@ def updateByNodes(nodes_dict):
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
-
+			else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
+		else:
+			print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
 _,BACKUP_NODES,__=parseMsg(backup.read()) #get nodes from backup file
 updateByNodes(BACKUP_NODES)
 

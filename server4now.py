@@ -39,7 +39,7 @@ periodicalBuffer = sendBuffer = int(time.time())
 periodicalBuffer -= (4*60+0.4*60)
 sendBuffer -= (4*60+0.6*60)
 #************************
-nodes_updated = False #flag for when a new node is added.
+sending_trigger = False #flag for when a new node is added.
 START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 
@@ -109,11 +109,11 @@ def parseMsg(msg):
 		if msg.cut(4) != START_BLOCKS: 
 			raise ValueError("Wrong start_blocks")
 		block_count=struct.unpack(">I",msg.cut(4))[0]
-		print "block_count:", block_count
+		print "  [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:", err
+		print Fore.RED + "  [parseMsg]: Message too short, cut error:", err
 		blocks=[]
 	return cmd ,nodes, blocks
 
@@ -135,11 +135,11 @@ def createMsg(cmd,nodes_list,blocks):
 
 
 def updateByNodes(nodes_dict):
-	global activeNodes, nodes_updated
+	global activeNodes, sending_trigger
 	for addr,node in nodes_dict.iteritems(): 
 		if ((currentTime - 30*60) < node.ts <= currentTime) and localhost!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
-				nodes_updated = True
+				sending_trigger = True
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
@@ -198,6 +198,23 @@ def inputLoop():
 
 			#send msg with (new)blocksList to everyone
 
+def miningLoop():
+	global blocksList, sending_trigger
+	while True:
+		if blocksList:
+			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1]) #would take some time
+			if new_block is None:
+				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
+			else:
+				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded"
+				blocksList += new_block
+				sending_trigger = True
+		else:
+			print Fore.YELLOW + "[miningLoop]: blockList is empty"
+			time.sleep(2*60) #wait for 2 min
+
+
+
 #>*****DEBUG*******
 def addNode(ip,port,name,ts):
 	global activeNodes
@@ -216,42 +233,29 @@ def debugLoop(): #3rd thread for printing wanted variables.
 debugThread=threading.Thread(target = debugLoop, name="debug")
 debugThread.daemon=True
 debugThread.start()
-#******************<
+
 
 inputThread=threading.Thread(target = inputLoop, name="input")
 inputThread.daemon=True
 inputThread.start() 
 
-#				getting nodes from tal:
+miningThread=threading.Thread(target = miningLoop, name="mining")
+miningThread.daemon=True
+miningThread.start() 
+
+
+#				Getting nodes & blocks from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-print "sent {} bytes to TeamDebug".format(out_socket.send(out_msg))
+print "Sent {} bytes to TeamDebug".format(out_socket.send(out_msg))
 in_msg = out_socket.recv(1<<20) #Mega Byte
 out_socket.close()
 cmd, nodes, blocksList = parseMsg(in_msg)
 updateByNodes(nodes)
-print Fore.CYAN , activeNodes.keys()
-
-def miningLoop():
-	global blocksList, nodes_updated
-	while True:
-		if blocksList:
-			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1]) #would take some time
-			if new_block is None:
-				print Fore.YELLOW + "[miningLoop]: mining attempt failed, trying again"
-			else:
-				print Fore.GREEN + "[miningLoop]: mining attempt succeeded"
-				blocksList += new_block
-				nodes_updated = True
-		else:
-			print Fore.YELLOW + "[miningLoop]: blockList is empty"
-			time.sleep(2*60) #wait for 2 min
+print Fore.CYAN + "activeNodes: ", activeNodes.keys()
 
 
-miningThread=threading.Thread(target = miningLoop, name="mining")
-miningThread.daemon=True
-miningThread.start() 
 
 while True:
 
@@ -261,31 +265,31 @@ while True:
 		backup.write(createMsg(1,activeNodes.values(),blocksList)) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
 		backup.flush() #save info.
-		print Fore.CYAN + "file backup is done"
+		print Fore.CYAN + "- File backup is done"
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
-	if nodes_updated or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
+	if sending_trigger or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
-		nodes_updated = False #Turn off the flag for triggering this very If nest.
-		print Fore.CYAN + "sending event has started"
+		sending_trigger = False #Turn off the flag for triggering this very If nest.
+		print Fore.CYAN + "Sending event has started"
 
 		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
 			try:
 				out_socket.connect(addr)
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE], blocksList)
-				"[outputLoop]: sent " +str(out_socket.send(out_msg))+ " bytes."
+				"[outputLoop]: Sent " +str(out_socket.send(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = out_socket.recv(1<<20) #Mega Byte
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				if in_msg == "":
-					print Fore.MAGENTA+"[outputLoop]: got an empty reply from: " + strAddress(addr)
+					print Fore.MAGENTA+"[outputLoop]: Got an empty reply from: " + strAddress(addr)
 				else:
 					cmd,nodes,blocks = parseMsg(in_msg)
 					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
 					updateByNodes(nodes)
-					#updateByBlocks(blocks) #we dont do blocks for now
+					updateByBlocks(blocks)
 
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
@@ -309,6 +313,6 @@ while True:
 
 	#BUG: for some reason the program was only terminated when the sending events started (i callled exit() about a minute before that)
 #we will get here somehow, probably input:
-print "main thread ended, terminating program."
+print "Main thread ended, terminating program."
 backup.close()
 #sys.exit(0)

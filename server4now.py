@@ -201,7 +201,7 @@ def inputLoop():
 def miningLoop():
 	global blocksList, sending_trigger
 	while True:
-		if blocksList:
+		if blocksList: #blocksList aint empty
 			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1]) #would take some time
 			if new_block is None:
 				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
@@ -211,7 +211,7 @@ def miningLoop():
 				sending_trigger = True
 		else:
 			print Fore.YELLOW + "[miningLoop]: blockList is empty"
-			time.sleep(2*60) #wait for 2 min
+			time.sleep(2*60) #wait for 2 min, maybe blocksList will get updated.
 
 
 
@@ -220,7 +220,7 @@ def addNode(ip,port,name,ts):
 	global activeNodes
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
 
-def debugLoop(): #3rd thread for printing wanted variables.
+def debugLoop(): #4th (!) thread for printing wanted variables.
 	global sendBuffer,periodicalBuffer,activeNodes,currentTime
 	while True:
 		try:
@@ -247,7 +247,7 @@ miningThread.start()
 #				Getting nodes & blocks from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
-out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
+out_msg = createMsg(1, activeNodes.values()+[SELF_NODE], blocksList)
 print "Sent {} bytes to TeamDebug".format(out_socket.send(out_msg))
 in_msg = out_socket.recv(1<<20) #Mega Byte
 out_socket.close()
@@ -269,7 +269,7 @@ while True:
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
-	if sending_trigger or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
+	if sending_trigger or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when sendingTrigger is true:
 		sendBuffer = currentTime #resetting the timer
 		sending_trigger = False #Turn off the flag for triggering this very If nest.
 		print Fore.CYAN + "Sending event has started"
@@ -292,14 +292,13 @@ while True:
 					updateByBlocks(blocks)
 
 			except socket.timeout as err:
-				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
+				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(strAddress(addr), err)
 			except socket.error as err:
-
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)
+				print Fore.RED+'[outputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err)
 			except ValueError as err:
 				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
 			else:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
+				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from: " + strAddress(addr)
 			finally:
 				out_socket.close()
 		#DELETE 30 MIN OLD NODES:

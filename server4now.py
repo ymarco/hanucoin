@@ -212,7 +212,7 @@ def miningLoop():
 				sending_trigger = True
 		else:
 			print Fore.YELLOW + "[miningLoop]: blockList is empty"
-			time.sleep(1) #wait for 2 min, maybe blocksList will get updated.
+			time.sleep(10) #wait for 2 min, maybe blocksList will get updated.
 
 
 

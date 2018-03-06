@@ -148,8 +148,8 @@ def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
 	global blocksList
 	#check if (list is more updated than ours) and (the lists are connected)
-	if (len(blocksList) < len(block_list_in)) and (hashspeed.IsValidBlock(block_list_in[-2],block_list_in[-1]) is 0) and (hashspeed.IsValidBlock(blocksList[-1],block_list_in[len(blocksList+1)]) is 0):
-		blocksList = block_list
+	if (len(blocksList) < len(block_list_in)) and (hashspeed.IsValidBlock(block_list_in[-2],block_list_in[-1]) is 0): #and (hashspeed.IsValidBlock(blocksList[-1], block_list_in[len(blocksList)]) is 0):
+		blocksList = block_list_in
 		return True
 	return False
 
@@ -202,6 +202,7 @@ def miningLoop():
 	global blocksList, sending_trigger
 	while True:
 		if blocksList: #blocksList aint empty
+			print Fore.CYAN + "[miningLoop]: Mining in progress"
 			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1]) #would take some time
 			if new_block is None:
 				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
@@ -211,7 +212,7 @@ def miningLoop():
 				sending_trigger = True
 		else:
 			print Fore.YELLOW + "[miningLoop]: blockList is empty"
-			time.sleep(2*60) #wait for 2 min, maybe blocksList will get updated.
+			time.sleep(1) #wait for 2 min, maybe blocksList will get updated.
 
 
 
@@ -269,7 +270,7 @@ while True:
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
-	if sending_trigger or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when sendingTrigger is true:
+	if sending_trigger or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when sending_trigger is true:
 		sendBuffer = currentTime #resetting the timer
 		sending_trigger = False #Turn off the flag for triggering this very If nest.
 		print Fore.CYAN + "Sending event has started"
@@ -282,6 +283,8 @@ while True:
 				"[outputLoop]: Sent " +str(out_socket.send(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = out_socket.recv(1<<20) #Mega Byte
+				time.sleep(1)
+				in_msg += out_socket.recv(1<<20)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				if in_msg == "":
 					print Fore.MAGENTA+"[outputLoop]: Got an empty reply from: " + strAddress(addr)

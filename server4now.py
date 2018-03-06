@@ -227,6 +227,14 @@ while True:
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False #Turn off the flag for triggering this very If nest.
+
+		print "deleting event has started"
+		#DELETE 30 MIN OLD NODES:
+		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
+			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:
+				print Fore.YELLOW + "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
+				del activeNodes[addr]
+
 		print Fore.CYAN + "sending event has started"
 
 		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
@@ -258,11 +266,7 @@ while True:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
 			finally:
 				out_socket.close()
-		#DELETE 30 MIN OLD NODES:
-		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
-			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:
-				print Fore.YELLOW + "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
-				del activeNodes[addr]
+
    		
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)

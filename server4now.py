@@ -47,7 +47,6 @@ backup=open(BACKUP_FILE_NAME,"r+b")
 activeNodes={}
 blocksList = []
 
-
 def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
 	#takes (ip,port) and returns "ip:port"
@@ -64,7 +63,7 @@ class node:
 	def __repr__(self):
 		return repr(self.__dict__)
 
-SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",currentTime)
+SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 
 class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -203,7 +202,7 @@ def miningLoop():
 	while True:
 		if blocksList: #blocksList aint empty
 			print Fore.CYAN + "[miningLoop]: Mining in progress"
-			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1]) #would take some time
+			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1], 1000) #would take some time
 			if new_block is None:
 				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
 			else:

@@ -128,9 +128,10 @@ def MineCoinAttempts(my_wallet, prev_block_bin, attempts_count):
     new_serial = serial + 1
     prev_half = prev_sig[:8]
     n_zeros = NumberOfZerosForPuzzle(new_serial)
-    for try_puzzle in xrange(attempts_count):
+    for num in xrange(attempts_count):
+		puzzle = random.int(0,1<<32)
         #print new_serial, my_wallet, prev_half, try_puzzle
-        block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, try_puzzle)
+        block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, puzzle)
         m = hashlib.md5()
         m.update(block_bin)
         sig = m.digest()
@@ -139,10 +140,10 @@ def MineCoinAttempts(my_wallet, prev_block_bin, attempts_count):
             return block_bin # new block
     return None # could not find block in attempts_count
 
-def MineCoin(my_wallet, prev_block_bin):
+def MineCoin(my_wallet, prev_block_bin, mine_attemps):
     new_block = None
     while not new_block:
-        new_block = MineCoinAttempts(my_wallet, prev_block_bin, 10000)
+        new_block = MineCoinAttempts(my_wallet, prev_block_bin, mine_attemps)
     return new_block
 
 

@@ -278,3 +278,5 @@ while True:
 print "main thread ended, terminating program."
 backup.close()
 #sys.exit(0)
+
+#BUG: Apperantly, alot of messages are recieved cut. We probably want to raise exceptions and check what's going on.

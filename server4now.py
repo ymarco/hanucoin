@@ -109,7 +109,7 @@ def parseMsg(msg):
 		for x in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:",err
+		print Fore.RED+"Message too short, cut error:",err
 		print "(at node/block number {})".format(x)
 		#blocks=[]
 	print "parsed nodes from the addresses:",nodes.keys()
@@ -157,8 +157,12 @@ def inputLoop():
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
-		try:	
-			in_msg = sock.recv(1<<20) #MegaByte
+		try:
+			in_msg=""
+			while True:
+				dat=sock.recv(1<<10)	
+				if not dat: break
+				in_msg += dat #MegaByte
 			if in_msg == "":
 				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
 			else:
@@ -167,7 +171,7 @@ def inputLoop():
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
 			out_message=createMsg(2,activeNodes.values()+[SELF_NODE],[])
-			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
+			print "[inputLoop]: sent " + str(sock.sendall(out_message))+ " bytes."
 				#sock.shutdown(2)
 		except socket.timeout as err:
 			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
@@ -208,7 +212,7 @@ out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
 out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
-print "sent {} bytes to tal".format(out_socket.send(out_msg))
+print "sent {} bytes to tal".format(out_socket.sendall(out_msg))
 in_msg = out_socket.recv(1<<20) #Mega Byte
 out_socket.close()
 cmd,nodes,blocks = parseMsg(in_msg)
@@ -248,9 +252,13 @@ while True:
 			try:
 				out_socket.connect(addr)
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],[])
-				"[outputLoop]: sent " +str(out_socket.send(out_msg))+ " bytes."
+				"[outputLoop]: sent " +str(out_socket.sendall(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
-				in_msg = out_socket.recv(1<<20) #Mega Byte
+				in_msg=""
+				while True:
+					dat=out_socket.recv(1<<10)
+					if not dat: break
+					in_msg += dat
 				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				if in_msg == "":

@@ -112,8 +112,10 @@ def parseMsg(msg):
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print Fore.RED + "  [parseMsg]: Message too short, cut error:", err
+		print Fore.RED+ "  [parseMsg]: Message too short, cut error:",err
+		print "  (at node/block number {})".format(x)
 		blocks=[]
+	print "parsed nodes from the addresses:",nodes.keys()
 	return cmd ,nodes, blocks
 
 
@@ -142,6 +144,9 @@ def updateByNodes(nodes_dict):
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
+			else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
+		else:
+			print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
 
 def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
@@ -151,7 +156,6 @@ def updateByBlocks(block_list_in):
 		blocksList = block_list_in
 		return True
 	return False
-
 
 
 _,BACKUP_NODES,__=parseMsg(backup.read()) #get nodes from backup file
@@ -168,8 +172,12 @@ def inputLoop():
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
-		try:	
-			in_msg = sock.recv(1<<20) #MegaByte
+		try:
+			in_msg=""
+			while True:
+				dat=sock.recv(1<<10)	
+				if not dat: break
+				in_msg += dat #MegaByte
 			if in_msg == "":
 				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
 			else:
@@ -272,18 +280,27 @@ while True:
 	if sending_trigger or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when sending_trigger is true:
 		sendBuffer = currentTime #resetting the timer
 		sending_trigger = False #Turn off the flag for triggering this very If nest.
-		print Fore.CYAN + "Sending event has started"
+		print "deleting event has started"
+		#DELETE 30 MIN OLD NODES:
+		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
+			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:
+				print Fore.YELLOW + "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
+				del activeNodes[addr]
 
 		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
+			print "[outputLoop]: trying to send {} a message:".format(addr)
 			try:
 				out_socket.connect(addr)
-				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE], blocksList)
-				"[outputLoop]: Sent " +str(out_socket.send(out_msg))+ " bytes."
+				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
+				"[outputLoop]: sent " +str(out_socket.sendall(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
-				in_msg = out_socket.recv(1<<20) #Mega Byte
-				time.sleep(1)
-				in_msg += out_socket.recv(1<<20)
+				in_msg=""
+				while True:
+					dat=out_socket.recv(1<<10)
+					if not dat: break
+					in_msg += dat
+				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				if in_msg == "":
 					print Fore.MAGENTA+"[outputLoop]: Got an empty reply from: " + strAddress(addr)
@@ -303,11 +320,7 @@ while True:
 				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from: " + strAddress(addr)
 			finally:
 				out_socket.close()
-		#DELETE 30 MIN OLD NODES:
-		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
-			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:
-				print Fore.YELLOW + "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
-				del activeNodes[addr]
+
    		
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
@@ -317,3 +330,5 @@ while True:
 print "Main thread ended, terminating program."
 backup.close()
 #sys.exit(0)
+
+#BUG: Apperantly, alot of messages are recieved cut. We probably want to raise exceptions and check what's going on.

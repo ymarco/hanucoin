@@ -109,7 +109,7 @@ def parseMsg(msg):
 		for x in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print "Message too short, cut error:" + err
+		print Fore.RED + "Message too short, cut error:" , err
 	return cmd ,nodes, blocks
 
 

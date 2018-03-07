@@ -81,7 +81,7 @@ class cutstr: #String with a self.cut(bytes) method which works like file.read(b
 									
 	def cut(self,bytes):
 		if bytes>len(self.string):
-			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
+			raise IndexError("[Errno 666]String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece=self.string[:bytes]
 		self.string=self.string[bytes:]

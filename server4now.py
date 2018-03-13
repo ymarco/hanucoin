@@ -113,9 +113,7 @@ def parseMsg(msg):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
 		print Fore.RED+ "  [parseMsg]: Message too short, cut error:",err
-		print "  (at node/block number {})".format(x)
 		blocks=[]
-	print "parsed nodes from the addresses:",nodes.keys()
 	return cmd ,nodes, blocks
 
 
@@ -138,15 +136,14 @@ def createMsg(cmd,nodes_list,blocks):
 def updateByNodes(nodes_dict):
 	global activeNodes, sending_trigger
 	for addr,node in nodes_dict.iteritems(): 
-		if ((currentTime - 30*60) < node.ts <= currentTime) and localhost!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
+		if ((currentTime - 30*60) < node.ts <= currentTime) and addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago, and doesnt have our ip
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				sending_trigger = True
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
-			else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
-		else:
-			print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
+			#else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
+		#else: print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
 
 def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
@@ -214,7 +211,7 @@ def miningLoop():
 			if new_block is None:
 				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
 			else:
-				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded"
+				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
 				blocksList += new_block
 				sending_trigger = True
 		else:
@@ -257,7 +254,11 @@ out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1, activeNodes.values()+[SELF_NODE], blocksList)
 print "Sent {} bytes to TeamDebug".format(out_socket.send(out_msg))
-in_msg = out_socket.recv(1<<20) #Mega Byte
+in_msg = ''
+while True:
+	dat=out_socket.recv(1<<10)
+	if not dat: break
+	in_msg += dat
 out_socket.close()
 cmd, nodes, blocksList = parseMsg(in_msg)
 updateByNodes(nodes)
@@ -313,7 +314,7 @@ while True:
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(strAddress(addr), err)
 			except socket.error as err:
-				print Fore.RED+'[outputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err)
+				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {},the soc was closed by them".format(strAddress(addr))
 			except ValueError as err:
 				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
 			else:

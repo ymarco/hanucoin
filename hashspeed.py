@@ -129,7 +129,7 @@ def MineCoinAttempts(my_wallet, prev_block_bin, attempts_count):
     prev_half = prev_sig[:8]
     n_zeros = NumberOfZerosForPuzzle(new_serial)
     for num in xrange(attempts_count):
-		puzzle = random.int(0,1<<32)
+        puzzle = random.randint(0,1<<32)
         #print new_serial, my_wallet, prev_half, try_puzzle
         block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, puzzle)
         m = hashlib.md5()

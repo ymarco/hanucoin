@@ -40,10 +40,10 @@ sendBuffer -= (4*60+0.6*60)
 nodes_updated = False #flag for when a new node is added.
 START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
-
-backup=open(BACKUP_FILE_NAME,"r+b")
+DO_BACKUP = BACKUP_FILE_NAME not in ("","nobackup","noBackup","NoBackup","NOBACKUP","none","None")
+if DO_BACKUP:
+	backup=open(BACKUP_FILE_NAME,"r+b")
 activeNodes={}
-
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
 
@@ -144,18 +144,20 @@ def updateByNodes(nodes_dict):
 			else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
 		else:
 			print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
-backupMSG=backup.read()
-if backupMSG:
-	_,BACKUP_NODES,__=parseMsg(backupMSG) #get nodes from backup file
-	updateByNodes(BACKUP_NODES)
+if DO_BACKUP:
+	backupMSG=backup.read()
+	if backupMSG:
+		_,BACKUP_NODES,__=parseMsg(backupMSG) #get nodes from backup file
+		updateByNodes(BACKUP_NODES)
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
 socket.setdefaulttimeout(30) #All sockets except listen_socket need timeout. may be too short
-
+out_messages_input=[]
 def inputLoop():
+	global out_messages_input
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
@@ -175,6 +177,7 @@ def inputLoop():
 			#updateByBlocks(blocks)
 			out_message=createMsg(2,activeNodes.values()+[SELF_NODE],[])
 			print "[inputLoop]: sent " + str(sock.sendall(out_message))+ " bytes."
+			out_messages_input.append(out_message)
 				#sock.shutdown(2)
 		except socket.timeout as err:
 			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
@@ -231,7 +234,7 @@ while True:
 
 	#DoSomeCoinMining() - we'll do that later
 	currentTime = int(time.time())
-	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
+	if DO_BACKUP and currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
 		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
@@ -297,7 +300,7 @@ while True:
 	#BUG: for some reason the program was only terminated when the sending events started (i callled exit() about a minute before that)
 #we will get here somehow, probably input:
 print "main thread ended, terminating program."
-backup.close()
+if DO_BACKUP: backup.close()
 #sys.exit(0)
 
 #BUG: Apperantly, alot of messages are recieved cut. We probably want to raise exceptions and check what's going on.

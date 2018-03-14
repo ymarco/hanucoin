@@ -16,6 +16,7 @@ SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
 currentTime = int(time.time())
 TEAM_NAME="Lead"
+TAL_IP="34.244.16.401"
 #try to get ip and port from user input:
 try:
 	if sys.argv[1] == "public":
@@ -27,6 +28,7 @@ try:
 	SELF_PORT = int(sys.argv[2])
 	BACKUP_FILE_NAME=sys.argv[3]
 	TEAM_NAME=sys.argv[4]
+	TAL_IP=sys.argv[5]
 except IndexError:
 	pass
 
@@ -49,7 +51,7 @@ def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
 	#takes (ip,port) and returns "ip:port"
 
-class node:
+class node(object):
 	def __init__(self,host,port,name,ts):
 		self.host = host
 		self.port = port
@@ -63,7 +65,7 @@ class node:
 
 SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",currentTime)
 
-class cutstr: #String with a self.cut(bytes) method which works like file.read(bytes).
+class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string=string
 
@@ -143,8 +145,10 @@ def updateByNodes(nodes_dict):
 			else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
 		else:
 			print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
-_,BACKUP_NODES,__=parseMsg(backup.read()) #get nodes from backup file
-updateByNodes(BACKUP_NODES)
+backupMSG=backup.read()
+if backupMSG:
+	_,BACKUP_NODES,__=parseMsg(backupMSG) #get nodes from backup file
+	updateByNodes(BACKUP_NODES)
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -195,7 +199,8 @@ def debugLoop(): #3rd thread for printing wanted variables.
 	while True:
 		try:
 			inpt=raw_input(">")
-			exec inpt
+			if inpt=="exit": exit()
+			else: exec inpt
 
 		except Exception as err:
 			print err
@@ -210,10 +215,14 @@ inputThread.start()
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
-out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
+out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
 print "sent {} bytes to tal".format(out_socket.sendall(out_msg))
-in_msg = out_socket.recv(1<<20) #Mega Byte
+in_msg=""
+while True:
+	dat=out_socket.recv(1<<10)
+	if not dat: break
+	in_msg+=dat
 out_socket.close()
 cmd,nodes,blocks = parseMsg(in_msg)
 updateByNodes(nodes)

@@ -251,12 +251,10 @@ debugThread=threading.Thread(target = debugLoop, name="debug")
 debugThread.daemon=True
 debugThread.start()
 
-
 inputThread=threading.Thread(target = inputLoop, name="input")
 inputThread.daemon=True
 inputThread.start() 
 
-<<<<<<< HEAD
 miningThread=threading.Thread(target = miningLoop, name="mining")
 miningThread.daemon=True
 miningThread.start() 
@@ -346,7 +344,6 @@ while True:
 #we will get here somehow, probably input:
 print "Main thread ended, terminating program."
 if DO_BACKUP: backup.close()
->>>>>>> master
 #sys.exit(0)
 
 #BUG: Apperantly, alot of messages are recieved cut. We probably want to raise exceptions and check what's going on.

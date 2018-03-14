@@ -63,7 +63,7 @@ class node(object):
 	def __repr__(self):
 		return repr(self.__dict__)
 
-SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",currentTime)
+SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -114,7 +114,6 @@ def parseMsg(msg):
 		print Fore.RED+"Message too short, cut error:",err
 		print "(at node/block number {})".format(x)
 		#blocks=[]
-	print "parsed nodes from the addresses:",nodes.keys()
 	return cmd ,nodes, blocks
 
 

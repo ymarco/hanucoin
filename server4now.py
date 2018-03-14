@@ -251,7 +251,8 @@ miningThread.start()
 
 #				Getting nodes & blocks from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
+#out_socket.connect(('34.244.16.40', 8080)) #Tal's main server - TeamDebug
+out_socket.connect(('132.66.120.2', 8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1, activeNodes.values()+[SELF_NODE], blocksList)
 print "Sent {} bytes to TeamDebug".format(out_socket.send(out_msg))
 in_msg = ''

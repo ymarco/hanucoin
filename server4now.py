@@ -314,7 +314,7 @@ while True:
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(strAddress(addr), err)
 			except socket.error as err:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {},the soc was closed by them".format(strAddress(addr))
+				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {}, the soc was closed by them".format(strAddress(addr))
 			except ValueError as err:
 				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
 			else:
@@ -326,7 +326,6 @@ while True:
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
-	#BUG: for some reason the program was only terminated when the sending events started (i callled exit() about a minute before that)
 #we will get here somehow, probably input:
 print "Main thread ended, terminating program."
 backup.close()

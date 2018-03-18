@@ -28,9 +28,9 @@ try:
 	else:
 		SELF_IP = sys.argv[1]
 	SELF_PORT = int(sys.argv[2])
-	BACKUP_FILE_NAME=sys.argv[3]
-	TEAM_NAME=sys.argv[4]
-	TAL_IP=sys.argv[5]
+	BACKUP_FILE_NAME = sys.argv[3]
+	TEAM_NAME = sys.argv[4]
+	#TAL_IP=sys.argv[5]
 except IndexError:
 	pass
 
@@ -70,7 +70,7 @@ SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
-		self.string=string
+		self.string = string
 
 	#def __repr__(self):
 	#	return "cutstr object:"+repr(self.string)
@@ -155,7 +155,7 @@ def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
 	global blocksList
 	#check if (list is more updated than ours) and (the lists are connected)
-	if (len(blocksList) < len(block_list_in)) and (hashspeed.IsValidBlock(block_list_in[-2],block_list_in[-1]) is 0): #and (hashspeed.IsValidBlock(blocksList[-1], block_list_in[len(blocksList)]) is 0):
+	if (len(blocksList) < len(block_list_in)) and (hashspeed.IsValidBlock(block_list_in[-2],block_list_in[-1]) == 0): #and (hashspeed.IsValidBlock(blocksList[-1], block_list_in[len(blocksList)]) is 0):
 		blocksList = block_list_in
 		return True
 	return False
@@ -219,7 +219,7 @@ def miningLoop():
 		if blocksList: #blocksList aint empty
 			print Fore.CYAN + "[miningLoop]: Mining in progress"
 			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1], 1000) #would take some time
-			if new_block is None:
+			if new_block == None:
 				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
 			else:
 				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"

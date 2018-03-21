@@ -1,2 +1,1 @@
-C:\Python27\python.exe server4now.py public 8089 backup.bin Lead 
-
+C:\Python27\python.exe server4now.py public 8089 backup.bin Lead 132.66.72.1

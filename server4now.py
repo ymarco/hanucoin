@@ -91,7 +91,7 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 
 
 def parseMsg(msg):
-	if in_msg == "":
+	if msg == "":
 		raise ValueError("[parseMsg]: msg is empty")
 	#else:
 	msg=cutstr(msg)
@@ -317,10 +317,10 @@ while True:
 					in_msg += dat
 				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-					cmd,nodes,blocks = parseMsg(in_msg)
-					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
-					updateByNodes(nodes)
-					updateByBlocks(blocks)
+				cmd,nodes,blocks = parseMsg(in_msg)
+				#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
+				updateByNodes(nodes)
+				updateByBlocks(blocks)
 
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(strAddress(addr), err)

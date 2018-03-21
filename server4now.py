@@ -123,12 +123,12 @@ def parseMsg(msg):
 	return cmd ,nodes, blocks
 
 
-def createMsg(cmd,nodes_list,blocks):
+def createMsg(cmd,nodes,blocks):
 
 	parsed_cmd = struct.pack(">I", cmd)
-	nodes_count=struct.pack(">I",len(nodes_list))	
+	nodes_count=struct.pack(">I",len(nodes))	
 	parsed_nodes = ''
-	for node in nodes_list:
+	for node in nodes:
 		parsed_nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 
 	block_count = struct.pack(">I", len(blocks))
@@ -218,7 +218,7 @@ def miningLoop():
 	while True:
 		if blocksList: #blocksList aint empty
 			print Fore.CYAN + "[miningLoop]: Mining in progress"
-			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1], 1000) #would take some time
+			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1], 100) #would take some time
 			if new_block == None:
 				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
 			else:

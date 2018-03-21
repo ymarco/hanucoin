@@ -91,6 +91,9 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 
 
 def parseMsg(msg):
+	if in_msg == "":
+		raise ValueError("[parseMsg]: msg is empty")
+	#else:
 	msg=cutstr(msg)
 	nodes={}
 	blocks=[]
@@ -185,14 +188,11 @@ def inputLoop():
 			while True:
 				dat=sock.recv(1<<10)	
 				if not dat: break
-				in_msg += dat #MegaByte
-			if in_msg == "":
-				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
-			else:
-				cmd,nodes,blocks = parseMsg(in_msg)
+				in_msg += dat #MegaByte	
+			cmd,nodes,blocks = parseMsg(in_msg)
 			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
-				updateByNodes(nodes)
-				updateByBlocks(blocks)
+			updateByNodes(nodes)
+			updateByBlocks(blocks)
 			out_message=createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 			out_messages_input.append(out_message)
@@ -317,9 +317,6 @@ while True:
 					in_msg += dat
 				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				if in_msg == "":
-					print Fore.MAGENTA+"[outputLoop]: Got an empty reply from: " + strAddress(addr)
-				else:
 					cmd,nodes,blocks = parseMsg(in_msg)
 					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
 					updateByNodes(nodes)
@@ -340,7 +337,7 @@ while True:
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
-#we will get here somehow, probably input:
+#we will get here somehow, probably user input:
 print "Main thread ended, terminating program."
 if DO_BACKUP: backup.close()
 #sys.exit(0)

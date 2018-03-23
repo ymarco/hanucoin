@@ -114,7 +114,6 @@ def parseMsg(msg):
 		print Fore.RED+"Message too short, cut error:",err
 		print "(at node/block number {})".format(x)
 		#blocks=[]
-	print "parsed nodes from the addresses:",nodes.keys()
 	return cmd ,nodes, blocks
 
 

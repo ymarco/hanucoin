@@ -18,7 +18,7 @@ SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
 currentTime = int(time.time())
 TEAM_NAME="Lead"
-TAL_IP="34.244.16.401"
+TAL_IP="34.244.16.40"
 #try to get ip and port from user input:
 try:
 	if sys.argv[1] == "public":
@@ -41,14 +41,14 @@ periodicalBuffer = sendBuffer = int(time.time())
 periodicalBuffer -= (4*60+0.4*60)
 sendBuffer -= (4*60+0.6*60)
 #************************
-sending_trigger = False #flag for when a new node is added.
+sending_trigger = False #flag for when a new node is added, or when we succeed in mining.
 START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 DO_BACKUP = BACKUP_FILE_NAME not in ("","nobackup","noBackup","NoBackup","NOBACKUP","none","None")
 if DO_BACKUP:
 	backup=open(BACKUP_FILE_NAME,"r+b")
-activeNodes={}
-blocksList = []
+activeNodes={} #saved as: (ip, port):(host,port,name,ts)
+blocksList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
 
 def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
@@ -62,10 +62,10 @@ class node(object):
 		self.ts = ts
 	def __eq__(self,other):
 		return self.__dict__ == other.__dict__
-
 	def __repr__(self):
 		return repr(self.__dict__)
-
+	def __getitem__(self,index):
+		return (self.host,self.port,self.name,self.ts)[index]
 SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
@@ -145,11 +145,8 @@ def updateByNodes(nodes_dict):
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
-			else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
-		else:
-			print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
-			#else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
-		#else: print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
+		else: None
+			
 
 def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
@@ -263,7 +260,7 @@ miningThread.start()
 
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
+out_socket.connect((TAL_IP,8080))
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
 print "sent {} bytes to tal".format(out_socket.sendall(out_msg))
 in_msg=""
@@ -292,6 +289,7 @@ while True:
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
+
 	if sending_trigger or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when sending_trigger is true:
 		sendBuffer = currentTime #resetting the timer
 		sending_trigger = False #Turn off the flag for triggering this very If nest.
@@ -302,11 +300,11 @@ while True:
 				print Fore.YELLOW + "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
 				del activeNodes[addr]
 
-		for addr in random.sample(activeNodes.viewkeys(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
+		for nod in random.sample(activeNodes.viewvalues(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
-			print "[outputLoop]: trying to send {} a message:".format(addr)
+			print Fore.CYAN + "[outputLoop]: trying to send {} a message:".format(nod[:3])
 			try:
-				out_socket.connect(addr)
+				out_socket.connect(nod[:2])
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
 				"[outputLoop]: sent " +str(out_socket.sendall(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
@@ -315,10 +313,9 @@ while True:
 					dat=out_socket.recv(1<<10)
 					if not dat: break
 					in_msg += dat
-				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
+				print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				if in_msg == "":
-					print Fore.MAGENTA+"[outputLoop]: Got an empty reply from: " + strAddress(addr)
+				if in_msg == "": print Fore.MAGENTA+"[outputLoop]: Got an empty reply from: ", nod[:3]	
 				else:
 					cmd,nodes,blocks = parseMsg(in_msg)
 					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
@@ -326,18 +323,18 @@ while True:
 					updateByBlocks(blocks)
 
 			except socket.timeout as err:
-				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(strAddress(addr), err)
+				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
 			except socket.error as err:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {}, the soc was closed by them".format(strAddress(addr))
+				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {}, the soc was closed by them".format(nod[:3])
 			except ValueError as err:
-				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
+				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
 			else:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from: " + strAddress(addr)
+				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from: ", nod[:3]
 			finally:
 				out_socket.close()
 
    		
-   		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
+   		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 #we will get here somehow, probably input:

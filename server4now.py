@@ -6,16 +6,16 @@ initColorama(autoreset=True)
 
 
 #Exit event for terminating program (call exit() or exit_event.set()):
-exit_event=threading.Event()
+exit_event = threading.Event()
 atexit.register(exit_event.set)
-old_exit=exit
-exit=exit_event.set
+old_exit = exit
+exit = exit_event.set
 
 #Default values:
-SELF_WALLET = hashspeed.WalletCode(["yoav", "maayan", "itzik"]) #the order doesnt matter, it gets sorted - look at hashspeed.py
+SELF_WALLET = hashspeed.WalletCode(["Lead"])
 SELF_PORT = 8089
 SELF_IP = localhost = "127.0.0.1"
-BACKUP_FILE_NAME="backup.bin"
+BACKUP_FILE_NAME = "backup.bin"
 currentTime = int(time.time())
 TEAM_NAME="Lead"
 TAL_IP="34.244.16.40"
@@ -45,10 +45,11 @@ sending_trigger = False #flag for when a new node is added, or when we succeed i
 START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 DO_BACKUP = BACKUP_FILE_NAME not in ("","nobackup","noBackup","NoBackup","NOBACKUP","none","None")
-if DO_BACKUP:
-	backup=open(BACKUP_FILE_NAME,"r+b")
-activeNodes={} #saved as: (ip, port):(host,port,name,ts)
+if DO_BACKUP: backup = open(BACKUP_FILE_NAME,"r+b")
+activeNodes={} #saved as: (ip, port):nodeObject
 blocksList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
+
+
 
 def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
@@ -76,24 +77,27 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 	#	return "cutstr object:"+repr(self.string)
 
 	#def __eq__(self,other):
-	#	return other==self.string #works with pure strings and other cutstr objects.
+	#	return other == self.string #works with pure strings and other cutstr objects.
 
 	def __len__(self):
 		return len(self.string)
 									
 	def cut(self,bytes):
-		if bytes>len(self.string):
+		if bytes > len(self.string):
 			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
 		
-		piece=self.string[:bytes]
-		self.string=self.string[bytes:]
+		piece = self.string[:bytes]
+		self.string = self.string[bytes:]
 		return piece
 
 
 def parseMsg(msg):
-	msg=cutstr(msg)
-	nodes={}
-	blocks=[]
+	if msg == "":
+		raise ValueError("[parseMsg]: msg is empty")
+	#else:
+	msg = cutstr(msg)
+	nodes = {}
+	blocks =  []
 	try:
 		cmd = struct.unpack(">I",msg.cut(4))[0]
 		if msg.cut(4) != START_NODES: 
@@ -116,16 +120,17 @@ def parseMsg(msg):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
 		print Fore.RED+ "  [parseMsg]: Message too short, cut error:",err
-		blocks=[]
+		blocks = []
 	return cmd ,nodes, blocks
 
 
-def createMsg(cmd,nodes_list,blocks):
+def createMsg(cmd,nodes,blocks):
 
 	parsed_cmd = struct.pack(">I", cmd)
-	nodes_count=struct.pack(">I",len(nodes_list))	
+	nodes_count = struct.pack(">I",len(nodes))	
+
 	parsed_nodes = ''
-	for node in nodes_list:
+	for node in nodes:
 		parsed_nodes += struct.pack("B",len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 
 	block_count = struct.pack(">I", len(blocks))
@@ -160,7 +165,7 @@ def updateByBlocks(block_list_in):
 
 
 if DO_BACKUP:
-	backupMSG=backup.read()
+	backupMSG = backup.read()
 	if backupMSG:
 		_,BACKUP_NODES,__=parseMsg(backupMSG) #get nodes from backup file
 		updateByNodes(BACKUP_NODES)
@@ -178,19 +183,16 @@ def inputLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
 		try:
-			in_msg=""
+			in_msg = ""
 			while True:
-				dat=sock.recv(1<<10)	
+				dat = sock.recv(1<<10)	
 				if not dat: break
-				in_msg += dat #MegaByte
-			if in_msg == "":
-				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
-			else:
-				cmd,nodes,blocks = parseMsg(in_msg)
-			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
-				updateByNodes(nodes)
-				updateByBlocks(blocks)
-			out_message=createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
+				in_msg += dat #MegaByte	
+			cmd,nodes,blocks = parseMsg(in_msg)
+			#if cmd != 1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
+			updateByNodes(nodes)
+			updateByBlocks(blocks)
+			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 			out_messages_input.append(out_message)
 				#sock.shutdown(2)
@@ -204,8 +206,7 @@ def inputLoop():
 			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
-
-			print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
+			print Fore.CYAN + 'activeNodes: ', activeNodes.viewkeys()
 
 
 			#send msg with (new)blocksList to everyone
@@ -215,7 +216,7 @@ def miningLoop():
 	while True:
 		if blocksList: #blocksList aint empty
 			print Fore.CYAN + "[miningLoop]: Mining in progress"
-			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1], 1000) #would take some time
+			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1], 100) #would take some time
 			if new_block == None:
 				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
 			else:
@@ -237,23 +238,23 @@ def debugLoop(): #4th (!) thread for printing wanted variables.
 	global sendBuffer,periodicalBuffer,activeNodes,currentTime
 	while True:
 		try:
-			inpt=raw_input(">")
-			if inpt=="exit": exit()
+			inpt = raw_input(">")
+			if inpt == "exit": exit()
 			else: exec inpt
 
 		except Exception as err:
 			print err
 
-debugThread=threading.Thread(target = debugLoop, name="debug")
-debugThread.daemon=True
+debugThread = threading.Thread(target = debugLoop, name = "debug")
+debugThread.daemon = True
 debugThread.start()
 
-inputThread=threading.Thread(target = inputLoop, name="input")
-inputThread.daemon=True
+inputThread=threading.Thread(target = inputLoop, name = "input")
+inputThread.daemon = True
 inputThread.start() 
 
-miningThread=threading.Thread(target = miningLoop, name="mining")
-miningThread.daemon=True
+miningThread=threading.Thread(target = miningLoop, name = "mining")
+miningThread.daemon = True
 miningThread.start() 
 
 
@@ -263,11 +264,11 @@ out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect((TAL_IP,8080))
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
 print "sent {} bytes to tal".format(out_socket.sendall(out_msg))
-in_msg=""
+in_msg = ""
 while True:
-	dat=out_socket.recv(1<<10)
+	dat = out_socket.recv(1<<10)
 	if not dat: break
-	in_msg+=dat
+	in_msg += dat
 
 out_socket.close()
 cmd, nodes, blocksList = parseMsg(in_msg)
@@ -308,19 +309,17 @@ while True:
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
 				"[outputLoop]: sent " +str(out_socket.sendall(out_msg))+ " bytes."
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
-				in_msg=""
+				in_msg = ""
 				while True:
-					dat=out_socket.recv(1<<10)
+					dat = out_socket.recv(1<<10)
 					if not dat: break
 					in_msg += dat
 				print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				if in_msg == "": print Fore.MAGENTA+"[outputLoop]: Got an empty reply from: ", nod[:3]	
-				else:
-					cmd,nodes,blocks = parseMsg(in_msg)
-					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
-					updateByNodes(nodes)
-					updateByBlocks(blocks)
+				cmd,nodes,blocks = parseMsg(in_msg)
+				#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
+				updateByNodes(nodes)
+				updateByBlocks(blocks)
 
 			except socket.timeout as err:
 				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
@@ -337,7 +336,7 @@ while True:
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
-#we will get here somehow, probably input:
+#we will get here somehow, probably user input:
 print "Main thread ended, terminating program."
 if DO_BACKUP: backup.close()
 #sys.exit(0)

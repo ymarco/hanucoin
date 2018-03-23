@@ -216,7 +216,7 @@ inputThread.start()
 
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
+out_socket.connect(("34.244.16.40",8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
 print "sent {} bytes to tal".format(out_socket.sendall(out_msg))
 in_msg=""

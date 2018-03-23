@@ -16,7 +16,7 @@ SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME="backup.bin"
 currentTime = int(time.time())
 TEAM_NAME="Lead"
-TAL_IP="34.244.16.401"
+TAL_IP="34.244.16.40"
 #try to get ip and port from user input:
 try:
 	if sys.argv[1] == "public":
@@ -63,7 +63,7 @@ class node(object):
 	def __repr__(self):
 		return repr(self.__dict__)
 
-SELF_NODE=node(SELF_IP,SELF_PORT,"Lead",currentTime)
+SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -176,8 +176,8 @@ def inputLoop():
 			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
-			out_message=createMsg(2,activeNodes.values()+[SELF_NODE],[])
-			print "[inputLoop]: sent " + str(sock.sendall(out_message))+ " bytes."
+			out_message=createMsg(2,activeNodes.values()+[SELF_NODE,node("we finally sent a proper response!",1234,"LEAD_RESPONSE",int(time.time()))],[])
+			sock.sendall(out_message)
 			out_messages_input.append(out_message)
 				#sock.shutdown(2)
 		except socket.timeout as err:
@@ -218,8 +218,9 @@ inputThread.start()
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
-out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
-print "sent {} bytes to tal".format(out_socket.sendall(out_msg))
+#out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
+out_msg = createMsg(1,[SELF_NODE],[])
+out_socket.sendall(out_msg)
 in_msg=""
 while True:
 	dat=out_socket.recv(1<<10)
@@ -232,7 +233,7 @@ print activeNodes.keys()
 
 
 while True:
-
+	
 	#DoSomeCoinMining() - we'll do that later
 	currentTime = int(time.time())
 	if DO_BACKUP and currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
@@ -263,7 +264,7 @@ while True:
 			try:
 				out_socket.connect(addr)
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],[])
-				"[outputLoop]: sent " +str(out_socket.sendall(out_msg))+ " bytes."
+				out_socket.sendall(out_msg)
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg=""
 				while True:
@@ -294,6 +295,7 @@ while True:
 
    		
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())
+	
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 	#IDEA: mine coins with an iterator for 'freezing' ability

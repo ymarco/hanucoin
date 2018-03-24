@@ -67,7 +67,8 @@ class node(object):
 		return repr(self.__dict__)
 	def __getitem__(self,index):
 		return (self.host,self.port,self.name,self.ts)[index]
-SELF_NODE=node('KABANOS TAASE PULL',1,TEAM_NAME,currentTime)
+
+SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -115,11 +116,11 @@ def parseMsg(msg):
 		if msg.cut(4) != START_BLOCKS: 
 			raise ValueError("Wrong start_blocks")
 		block_count=struct.unpack(">I",msg.cut(4))[0]
-		print "  [parseMsg]: block_count:", block_count
+		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except IndexError as err:
-		print Fore.RED+ "  [parseMsg]: Message too short, cut error:",err
+		print Fore.RED+ "    [parseMsg]: Message too short, cut error:",err
 		blocks = []
 	return cmd ,nodes, blocks
 
@@ -186,9 +187,9 @@ def inputLoop():
 		try:
 			in_msg = ""
 			while True:
-				dat = sock.recv(1<<10)	
-				if not dat: break
-				in_msg += dat #MegaByte	
+				data = sock.recv(1<<10)	
+				if not data: break
+				in_msg += data #MegaByte	
 			cmd,nodes,blocks = parseMsg(in_msg)
 			#if cmd != 1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 			updateByNodes(nodes)
@@ -255,25 +256,25 @@ miningThread.start()
 
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP,8080))
-out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-in_msg=""
+out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
+out_msg = createMsg(1,[SELF_NODE],[])
+out_socket.sendall(out_msg)
+in_msg = ""
 while True:
-	dat = out_socket.recv(1<<10)
-	if not dat: break
-	in_msg += dat
-
+	data = out_socket.recv(1<<10)
+	if not data: break
+	in_msg += data
 out_socket.close()
-cmd, nodes, blocksList = parseMsg(in_msg)
+cmd,nodes,blocks = parseMsg(in_msg)
 updateByNodes(nodes)
-print Fore.CYAN + "activeNodes: ", activeNodes.keys()
+updateByBlocks(blocks)
+print activeNodes.viewkeys()
 
 
 
 while True:
 	currentTime = int(time.time())
 	if DO_BACKUP and currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
-		print Fore.CYAN + "file backup has started"
 		backup.seek(0) #go to the start of the file
 		backup.write(createMsg(1,activeNodes.values(),blocksList)) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
@@ -298,14 +299,14 @@ while True:
 			print Fore.CYAN + "[outputLoop]: trying to send {} a message:".format(nod[:3])
 			try:
 				out_socket.connect(nod[:2])
-				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-				"[outputLoop]: sent %d bytes." % out_socket.sendall(out_msg) 
+				out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
+				out_socket.sendall(out_msg)  
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = ""
 				while True:
-					dat = out_socket.recv(1<<10)
-					if not dat: break
-					in_msg += dat
+					data = out_socket.recv(1<<10)
+					if not data: break
+					in_msg += data
 				print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				cmd,nodes,blocks = parseMsg(in_msg)

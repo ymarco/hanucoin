@@ -1,4 +1,5 @@
 from urllib2 import urlopen
+from json import load
 from colorama import Fore,Back,Style,init as initColorama
 import threading, socket, hashspeed, time, struct, random, sys, atexit
 
@@ -31,7 +32,6 @@ try:
 	TAL_IP=sys.argv[5]
 except IndexError:
 	pass
-
 periodicalBuffer = sendBuffer = int(time.time())
 #DEBUG: *******************
 periodicalBuffer -= (4*60+0.4*60)
@@ -176,7 +176,11 @@ def inputLoop():
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
 			out_message=createMsg(2,activeNodes.values()+[SELF_NODE,node("we finally sent a proper response!",1234,"LEAD_RESPONSE",int(time.time()))],[])
-			sock.sendall(out_message)
+			byts=1
+			part=0
+			while byts:
+				byts = sock.send(out_message[part:])
+				part += byts
 			out_messages_input.append(out_message)
 				#sock.shutdown(2)
 		except socket.timeout as err:

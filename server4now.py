@@ -13,6 +13,7 @@ exit = exit_event.set
 
 #Default values:
 SELF_WALLET = hashspeed2.WalletCode(["Lead"])
+NOONE_WALLET = hashspeed2.WalletCode(["no_body"])
 SELF_PORT = 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME = "backup.bin"
@@ -152,16 +153,18 @@ def updateByNodes(nodes_dict):
 				activeNodes[addr] = node	
 			elif activeNodes[addr].ts < node.ts: #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
-					print Fore.GREEN + "[updateByNodes]: updated {}'s ts".format(node[:3])
 		else: None
 			
 
-def updateByBlocks(block_list_in):
+def updateByBlocks(blocks):
 	#returns True if updated blocksList, else - False
 	global blocksList
-	#check if (list is longer than ours) and (the lists are connected)
-	if (len(blocksList) < len(block_list_in)) and (hashspeed2.IsValidBlock(block_list_in[-2],block_list_in[-1])==0):#and hashspeed2.IsValidBlock(blocksList[-1], block_list_in[len(blocksList)])==0:
-		blocksList = block_list_in
+	if len(blocksList) <= 2:
+		blocksList =blocks
+		return True
+	#else: check if (list is longer than ours) and (the lists are connected)
+	if (len(blocksList) < len(blocks)) and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blocksList[-1],blocks[len(blocksList)])==0:
+		blocksList = blocks
 		return True
 	return False
 
@@ -177,7 +180,7 @@ if DO_BACKUP:
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-socket.setdefaulttimeout(30) #All sockets except listen_socket need timeout. may be too short
+socket.setdefaulttimeout(10) #All sockets except listen_socket need timeout. may be too short
 out_messages_input=[]
 
 def inputLoop():
@@ -214,10 +217,16 @@ def miningLoop():
 	global blocksList, blocks_got_updated
 	while True:
 		if blocksList: #blocksList aint empty
-			print Fore.CYAN + "[miningLoop]: Mining in progress"
+			if hashspeed2.unpack_clock_to_tuple(blocksList[-1])[2] == SELF_WALLET:
+				wallet = NOONE_WALLET
+				print Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress' 
+			else: 
+				wallet = SELF_WALLET
+				print Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress' 
+
 			for i in xrange(1<<16): #tries 2^16 attemps every cycle, 2^16 possible cycles. (2^16 attemps)*(2^16 possible cycles) = 2^32 total possible attemps, as needed
 				start_num = i*(1<<16)
-				new_block= hashspeed2.MineCoinAttempts(SELF_WALLET, blocksList[-1],start_num,1<<16) 
+				new_block= hashspeed2.MineCoinAttempts(wallet, blocksList[-1],start_num,1<<16) 
 				if blocks_got_updated or new_block!=None: break #start all over again, its a new block
 
 			if blocks_got_updated == True: print Fore.YELLOW + "[miningLoop]: someone else succeeded mining, trying again on the new block"
@@ -241,7 +250,7 @@ def addNode(ip,port,name,ts):
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
 
 def debugLoop(): #4th (!) thread for printing wanted variables.
-	global sendBuffer,periodicalBuffer,activeNodes,blocksList,currentTime
+	global sendBuffer,periodicalBuffer,activeNodes,blocksList,currentTime, nodes_got_updated
 	while True:
 		try:
 			inpt = raw_input(">")

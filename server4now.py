@@ -67,7 +67,7 @@ class node(object):
 		return repr(self.__dict__)
 	def __getitem__(self,index):
 		return (self.host,self.port,self.name,self.ts)[index]
-SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
+SELF_NODE=node('KABANOS TAASE PULL',1,TEAM_NAME,currentTime)
 
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):

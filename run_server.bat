@@ -1,2 +1,1 @@
-python server4now.py public 8089 backup.bin Lead
-pause
+python server4now.py 8089 1 1 150

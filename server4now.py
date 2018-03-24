@@ -15,26 +15,25 @@ exit = exit_event.set
 SELF_WALLET = hashspeed2.WalletCode(["Lead"])
 NOONE_WALLET = hashspeed2.WalletCode(["no_body"])
 SELF_PORT = 8089
-SELF_IP = localhost = "127.0.0.1"
+SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
+localhost = '127.0.0.1'
 BACKUP_FILE_NAME = "backup.bin"
 currentTime = int(time.time())
 TEAM_NAME="Lead"
 TAL_IP="34.244.16.40"
+mining_slice_1 = 1
+mining_slice_2 = 1
+TIME_BETWEEN_SENDS = 5*60 #5 min
 #try to get ip and port from user input:
 try:
-	if sys.argv[1] == "public":
-		SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
-	elif sys.argv[1] == "local":
-		pass
-	else:
-		SELF_IP = sys.argv[1]
-	SELF_PORT = int(sys.argv[2])
-	BACKUP_FILE_NAME = sys.argv[3]
-	TEAM_NAME = sys.argv[4]
-	#TAL_IP=sys.argv[5]
-except IndexError:
-	pass
+	SELF_PORT = int(sys.argv[1])
+	mining_slice_1 = int(sys.argv[2]) #{we'll write what slice we want to mine in. useful when several copies of this server are running together.
+	mining_slice_2 = int(sys.argv[3]) #{example: 5 servers are running. for fastest mining the 1st computer will input 'port,x,t' and his server will cover x/y of total mining possibilities
+	TIME_BETWEEN_SENDS = int(sys.argv[4]) #in secs
+except IndexError: pass
 
+MINING_SLICE_BOT = ((mining_slice_1 -1)*(1<<16))/mining_slice_2
+MINING_SLICE_TOP = ((mining_slice_1)*(1<<16))/mining_slice_2
 
 
 periodicalBuffer = sendBuffer = int(time.time())
@@ -224,7 +223,7 @@ def miningLoop():
 				wallet = SELF_WALLET
 				print Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress' 
 
-			for i in xrange(1<<16): #tries 2^16 attemps every cycle, 2^16 possible cycles. (2^16 attemps)*(2^16 possible cycles) = 2^32 total possible attemps, as needed
+			for i in xrange(MINING_SLICE_BOT, MINING_SLICE_TOP):
 				start_num = i*(1<<16)
 				new_block= hashspeed2.MineCoinAttempts(wallet, blocksList[-1],start_num,1<<16) 
 				if blocks_got_updated or new_block!=None: break #start all over again, its a new block
@@ -302,7 +301,7 @@ while True:
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
 
-	if nodes_got_updated or blocks_got_updated or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when nodes_got_updated is true:
+	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 min, or when nodes_got_updated is true:
 		sendBuffer = currentTime #resetting the timer
 		nodes_got_updated = blocks_got_updated = False #Turn off the flag for triggering this very If nest.
 		print "deleting event has started"

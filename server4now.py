@@ -221,7 +221,6 @@ inputThread.start()
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
-#out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],[])
 out_msg = createMsg(1,[SELF_NODE],[])
 out_socket.sendall(out_msg)
 in_msg=""
@@ -280,21 +279,16 @@ while True:
 					print Fore.MAGENTA+"[outputLoop]: got an empty reply from: " + strAddress(addr)
 				else:
 					cmd,nodes,blocks = parseMsg(in_msg)
-					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
+					#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except //??!!
 					updateByNodes(nodes)
-					#updateByBlocks(blocks) #we dont do blocks for now
+					#updateByBlocks(blocks) #we mine on branch "blocks"
 
-			except socket.timeout as err:
-				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
-			except socket.error as err:
+			except socket.timeout as err:	print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
+			except socket.error as err:		print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)
+			except ValueError as err:		print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
+			else:							print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
+			finally:						out_socket.close()
 
-				print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)
-			except ValueError as err:
-				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
-			else:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
-			finally:
-				out_socket.close()
 
    		
    		print Fore.CYAN + "activeNodes: " + str(activeNodes.keys())

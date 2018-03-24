@@ -19,7 +19,7 @@ def Log2(n):
             return i
     return 99
 
-g_puzzle_bits0 = 20  # put in a variable so we can make it lower for testing
+g_puzzle_bits0 = 10  # put in a variable so we can make it lower for testing
 def NumberOfZerosForPuzzle(block_serial_number):
     """Given a block serial number - how many zeros should be at the end of its signature
     >>> NumberOfZerosForPuzzle(1000)

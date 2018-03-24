@@ -215,21 +215,23 @@ def miningLoop():
 	while True:
 		if blocksList: #blocksList aint empty
 			print Fore.CYAN + "[miningLoop]: Mining in progress"
-			for i in xrange(1<<16): #tries 2^16 attemps every cycle, 2^16 possible cycles. (2^16 attemps)*(2^16 possible cycles) = 2*32 total possible attemps, as needed
+			for i in xrange(1<<16): #tries 2^16 attemps every cycle, 2^16 possible cycles. (2^16 attemps)*(2^16 possible cycles) = 2^32 total possible attemps, as needed
 				start_num = i*(1<<16)
 				new_block= hashspeed2.MineCoinAttempts(SELF_WALLET, blocksList[-1],start_num,1<<16) 
-				if blocks_got_updated or new_block!=None: break #start all over again, its a new blocks
+				if blocks_got_updated or new_block!=None: break #start all over again, its a new block
 
 			if blocks_got_updated == True: print Fore.YELLOW + "[miningLoop]: someone else succeeded mining, trying again on the new block"
 			elif new_block != None: 
 				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
-				blocksList += new_block
+				print new_block, len(new_block), type(new_block)
+				print hashspeed2.IsValidBlock(blocksList[-1],new_block)
+				blocksList.append(new_block)
 				blocks_got_updated = True
-			else: print Fore.RED + "[miningLoop]: WTF! no succes after 1<<32 tries... there's a big problem here..." #the for loop finished without breaking ?!
+			else: print Fore.RED + "[miningLoop]: WTF! no succes after 2^32 tries... there's a big problem here..." #the for loop finished without breaking ?!
 				
 		else:
 			print Fore.YELLOW + "[miningLoop]: blocksList is empty"
-			time.sleep(20) #wait, maybe blocksList will get updated.
+			time.sleep(3) #wait, maybe blocksList will get updated.
 		time.sleep(0.1)
 
 
@@ -323,7 +325,7 @@ while True:
 				blocks_got_updated = updateByBlocks(blocks)
 
 			except socket.timeout as err:	print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
-			except socket.error as err:		print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {}, the soc was closed by them".format(nod[:3])
+			except socket.error as err:		print Fore.GREEN+'[outputLoop]: Sent and recieved a message from {}, the soc was closed by them'.format(nod[:3])
 			except ValueError as err:		print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
 			else:							print Fore.GREEN+"[outputLoop]: Sent and recieved a message from: ", nod[:3]
 			finally:						out_socket.close()

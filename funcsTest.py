@@ -1,6 +1,6 @@
 from urllib2 import urlopen
 from colorama import Fore,Back,Style,init as initColorama
-import threading, socket, hashspeed, time, struct, random, sys, atexit
+import threading, socket,hashspeed, hashspeed2, time, struct, random, sys, atexit
 
 initColorama(autoreset=True)
 
@@ -12,7 +12,7 @@ old_exit = exit
 exit = exit_event.set
 
 #Default values:
-SELF_WALLET = hashspeed.WalletCode(["Lead"])
+SELF_WALLET = hashspeed2.WalletCode(["Lead"])
 SELF_PORT = 8089
 SELF_IP = localhost = "127.0.0.1"
 BACKUP_FILE_NAME = "backup.bin"
@@ -41,19 +41,20 @@ periodicalBuffer = sendBuffer = int(time.time())
 periodicalBuffer -= (4*60+0.4*60)
 sendBuffer -= (4*60+0.6*60)
 #************************
-sending_trigger = False #flag for when a new node is added, or when we succeed in mining.
+nodes_got_updated = False #flag for when a new node is added.
+blocks_got_updated = False #flag for when someone (might be us) succeeds in mining.
 START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 DO_BACKUP = BACKUP_FILE_NAME not in ("","nobackup","noBackup","NoBackup","NOBACKUP","none","None")
 if DO_BACKUP: backup = open(BACKUP_FILE_NAME,"r+b")
-activeNodes={} #saved as: (ip, port):nodeObject
+activeNodes={} #saved as: (ip, port):node(host,port,name,ts) 
 blocksList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
 
 
 
 def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
-	#takes (ip,port) and returns "ip:port"
+	#takes (ip,port) and returns "ip: port"
 
 class node(object):
 	def __init__(self,host,port,name,ts):
@@ -143,34 +144,28 @@ def createMsg(cmd,nodes,blocks):
 
 
 def updateByNodes(nodes_dict):
-	global activeNodes, sending_trigger
+	global activeNodes, nodes_got_updated
 	for addr,node in nodes_dict.iteritems(): 
-		if ((currentTime - 30*60) < node.ts <= currentTime) and addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago, and doesnt have our ip
+		if ((currentTime - 30*60) < node.ts <= currentTime) and addr!=(SELF_IP,SELF_PORT) : #If it's not a node from the future or from more than 30 minutes ago, and doesnt have our ip
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
-				sending_trigger = True
-				activeNodes[addr] = node
-				print Fore.GREEN + "[updateByNodes]: updated {}'s ts".format(node[:3])
-			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
+				nodes_got_updated = True
+				activeNodes[addr] = node	
+			elif activeNodes[addr].ts < node.ts: #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
+					print Fore.GREEN + "[updateByNodes]: updated {}'s ts".format(node[:3])
 		else: None
 			
 
 def updateByBlocks(block_list_in):
 	#returns True if updated blocksList, else - False
 	global blocksList
-	#check if (list is more updated than ours) and (the lists are connected)
-	if (len(blocksList) < len(block_list_in)) and (hashspeed.IsValidBlock(block_list_in[-2],block_list_in[-1]) == 0): #and (hashspeed.IsValidBlock(blocksList[-1], block_list_in[len(blocksList)]) is 0):
+	#check if (list is longer than ours) and (the lists are connected)
+	if (len(blocksList) < len(block_list_in)) and (hashspeed2.IsValidBlock(block_list_in[-2],block_list_in[-1])==0):#and hashspeed2.IsValidBlock(blocksList[-1], block_list_in[len(blocksList)])==0:
 		blocksList = block_list_in
 		return True
 	return False
 
 
-
-if DO_BACKUP:
-	backupMSG = backup.read()
-	if backupMSG:
-		_,BACKUP_NODES,__=parseMsg(backupMSG) #get nodes from backup file
-		updateByNodes(BACKUP_NODES)
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -194,7 +189,7 @@ def inputLoop():
 			cmd,nodes,blocks = parseMsg(in_msg)
 			#if cmd != 1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 			updateByNodes(nodes)
-			updateByBlocks(blocks)
+			blocks_got_updated = updateByBlocks(blocks)
 			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 			out_messages_input.append(out_message)
@@ -210,20 +205,26 @@ def inputLoop():
 
 
 def miningLoop():
-	global blocksList, sending_trigger
+	global blocksList, blocks_got_updated
 	while True:
 		if blocksList: #blocksList aint empty
 			print Fore.CYAN + "[miningLoop]: Mining in progress"
-			new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1], 100) #would take some time
-			if new_block == None:
-				print Fore.YELLOW + "[miningLoop]: Mining attempt failed, trying again"
-			else:
+			for i in xrange(1<<16): #tries 2^16 attemps every cycle, 2^16 possible cycles. (2^16 attemps)*(2^16 possible cycles) = 2^32 total possible attemps, as needed.
+				start_num = i*(1<<16)
+				new_block= hashspeed2.MineCoinAttempts(SELF_WALLET, blocksList[-1],start_num,1<<16) 
+				if blocks_got_updated or new_block!=None: break #start all over again, its a new blocks
+
+			if blocks_got_updated == True: print Fore.YELLOW + "[miningLoop]: someone else succeeded mining, trying again on the new block"
+			elif new_block != None: 
 				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
 				blocksList += new_block
-				sending_trigger = True
+				break
+				blocks_got_updated = True
+			else: print Fore.RED + "[miningLoop]: WTF! no succes after 2^32 tries... there's a big problem here..." #the for loop finished without breaking ?!
+				
 		else:
 			print Fore.YELLOW + "[miningLoop]: blocksList is empty"
-			time.sleep(10) #wait, maybe blocksList will get updated.
+			time.sleep(20) #wait, maybe blocksList will get updated.
 		time.sleep(0.1)
 
 
@@ -233,7 +234,7 @@ def addNode(ip,port,name,ts):
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
 
 def debugLoop(): #4th (!) thread for printing wanted variables.
-	global sendBuffer,periodicalBuffer,activeNodes,currentTime
+	global sendBuffer,periodicalBuffer,activeNodes,blocksList,currentTime
 	while True:
 		try:
 			inpt = raw_input(">")
@@ -244,12 +245,20 @@ def debugLoop(): #4th (!) thread for printing wanted variables.
 
 backup = open(BACKUP_FILE_NAME,"r+b")
 backupMSG = backup.read()
-if backupMSG:
-	BACKUP_BLOCKS,BACKUP_NODES,__=parseMsg(backupMSG) #get nodes from backup file
-	updateByNodes(BACKUP_NODES)
-	updateByBlocks(BACKUP_BLOCKS)
 
 
-hashspeed.MineCoinAttempts(SELF_WALLET,blocksList[-1],10)
+BACKUP_CMD, BACKUP_NODES, BACKUP_BLOCKS=parseMsg(backupMSG) #get nodes from backup file
+updateByNodes(BACKUP_NODES)
+updateByBlocks(BACKUP_BLOCKS)
 
+#block_bin without *
+print hashspeed.IsValidBlock(blocksList[-2],blocksList[-1])
+print "mining:"
+new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1])
+print new_block
+print type(new_block)
+print type(blocksList[-1])
+print len(new_block)
+print len(blocksList[-1])
+print hashspeed.IsValidBlock(blocksList[-1],new_block)
 time.sleep(10)			

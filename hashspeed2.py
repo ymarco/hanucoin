@@ -119,13 +119,13 @@ def IsValidBlockUnpacked(prev_block_tuple, block_tuple):
     return CheckBlockSignature(*block_tuple)
 
 
-def MineCoinAttempts(my_wallet, prev_block_bin,start_num,attempts_count):
+def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
     prev_block = struct.unpack(">LL8sL12s", prev_block_bin)
     serial, w, prev_prev_sig, prev_puzzle, prev_sig  = prev_block
     new_serial = serial + 1
     prev_half = prev_sig[:8]
     n_zeros = NumberOfZerosForPuzzle(new_serial)
-    if start_num+attempts_count > 1<<32: attempts_count = 1<<32 - start_num #we dont want to iterate over numbers bigger than 1<<32
+    if start_num+attempts_count > 1<<32: attempts_count = 1<<32 - start_num
     for puzzle in xrange(start_num, start_num+attempts_count):
         #print new_serial, my_wallet, prev_half, puzzle
         block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, puzzle)
@@ -134,7 +134,7 @@ def MineCoinAttempts(my_wallet, prev_block_bin,start_num,attempts_count):
         sig = m.digest()
         if CheckSignature(sig, n_zeros):
             block_bin += sig[:12]
-            return block_bin #new block
+            return block_bin # new block
     return None # could not find block in attempts_count
 
 def MineCoin(my_wallet, prev_block_bin):

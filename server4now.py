@@ -176,6 +176,7 @@ listen_socket.bind(('', SELF_PORT))
 
 socket.setdefaulttimeout(30) #All sockets except listen_socket need timeout. may be too short
 out_messages_input=[]
+
 def inputLoop():
 	global out_messages_input
 	listen_socket.listen(1)
@@ -195,21 +196,16 @@ def inputLoop():
 			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 			out_messages_input.append(out_message)
-				#sock.shutdown(2)
-		except socket.timeout as err:
-			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
-		except socket.error as err:
-			print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
-		except ValueError as err:
-			print Fore.MAGENTA+ '[inputLoop]: got an invalid data msg from {}: {}'.format(strAddress(addr),err)
- 		else:
-			print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
+			#sock.shutdown(2)
+		except socket.timeout as err:	print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
+		except socket.error as err:		print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
+		except ValueError as err:		print Fore.MAGENTA+ '[inputLoop]: got an invalid data msg from {}: {}'.format(strAddress(addr),err)
+ 		else:							print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
 			print Fore.CYAN + 'activeNodes: ', activeNodes.viewkeys()
+		time.sleep(0.1)
 
-
-			#send msg with (new)blocksList to everyone
 
 def miningLoop():
 	global blocksList, sending_trigger
@@ -225,8 +221,8 @@ def miningLoop():
 				sending_trigger = True
 		else:
 			print Fore.YELLOW + "[miningLoop]: blocksList is empty"
-			time.sleep(10) #wait for 2 min, maybe blocksList will get updated.
-
+			time.sleep(10) #wait, maybe blocksList will get updated.
+		time.sleep(0.1)
 
 
 #>*****DEBUG*******
@@ -241,9 +237,7 @@ def debugLoop(): #4th (!) thread for printing wanted variables.
 			inpt = raw_input(">")
 			if inpt == "exit": exit()
 			else: exec inpt
-
-		except Exception as err:
-			print err
+		except Exception as err: print err
 
 debugThread = threading.Thread(target = debugLoop, name = "debug")
 debugThread.daemon = True
@@ -263,8 +257,7 @@ miningThread.start()
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect((TAL_IP,8080))
 out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-print "sent {} bytes to tal".format(out_socket.sendall(out_msg))
-in_msg = ""
+in_msg=""
 while True:
 	dat = out_socket.recv(1<<10)
 	if not dat: break
@@ -278,7 +271,6 @@ print Fore.CYAN + "activeNodes: ", activeNodes.keys()
 
 
 while True:
-
 	currentTime = int(time.time())
 	if DO_BACKUP and currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		print Fore.CYAN + "file backup has started"
@@ -296,10 +288,10 @@ while True:
 		sending_trigger = False #Turn off the flag for triggering this very If nest.
 		print "deleting event has started"
 		#DELETE 30 MIN OLD NODES:
-		for addr in activeNodes.keys(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
-			if currentTime - activeNodes[addr].ts > 30*60: #the node wasnt seen in 30 min:
-				print Fore.YELLOW + "Deleted: " + strAddress(addr) + "'s node as it wasn't seen in 30 min"
-				del activeNodes[addr]
+		for nod in activeNodes.values(): #keys rather than iterkeys is important because we are deleting keys from the dictionary.
+			if currentTime - nod.ts > 30*60: #the node wasnt seen in 30 min:
+				print Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(nod[:3])
+				del activeNodes[nod[:2]] #nod[:2] returns (host,port) which happens to also be nod's key
 
 		for nod in random.sample(activeNodes.viewvalues(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
@@ -307,7 +299,7 @@ while True:
 			try:
 				out_socket.connect(nod[:2])
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-				"[outputLoop]: sent " +str(out_socket.sendall(out_msg))+ " bytes."
+				"[outputLoop]: sent %d bytes." % out_socket.sendall(out_msg) 
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
 				in_msg = ""
 				while True:
@@ -319,21 +311,17 @@ while True:
 				cmd,nodes,blocks = parseMsg(in_msg)
 				#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
 				updateByNodes(nodes)
+				print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 				updateByBlocks(blocks)
 
-			except socket.timeout as err:
-				print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
-			except socket.error as err:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {}, the soc was closed by them".format(nod[:3])
-			except ValueError as err:
-				print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
-			else:
-				print Fore.GREEN+"[outputLoop]: Sent and recieved a message from: ", nod[:3]
-			finally:
-				out_socket.close()
+			except socket.timeout as err:	print Fore.MAGENTA+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
+			except socket.error as err:		print Fore.GREEN+"[outputLoop]: Sent and recieved a message from {}, the soc was closed by them".format(nod[:3])
+			except ValueError as err:		print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
+			else:							print Fore.GREEN+"[outputLoop]: Sent and recieved a message from: ", nod[:3]
+			finally:						out_socket.close()
+
 
    		
-   		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 #we will get here somehow, probably user input:

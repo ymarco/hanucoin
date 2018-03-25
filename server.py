@@ -120,7 +120,7 @@ def parseMsg(msg):
 	nodes = {}
 	blocks =  []
 	try:
-		if struct.unpack(">I",msg.cut(4))[0] != 1: raise ValueError("[parseMsg]: cmd recieved isnt 1!")
+		cmd = struct.unpack(">I",msg.cut(4))[0]
 		if msg.cut(4) != START_NODES: raise ValueError("Wrong start_nodes")
 		node_count 	= struct.unpack(">I",msg.cut(4))[0]
 		for _ in xrange(node_count):
@@ -141,7 +141,7 @@ def parseMsg(msg):
 	except IndexError as err:
 		print Fore.RED+ "    [parseMsg]: Message too short, cut error:",err
 		blocks = [] #we dont want damaged blocks
-	return nodes, blocks
+	return cmd, nodes, blocks
 
 
 def createMsg(cmd,nodes,blocks):
@@ -189,7 +189,7 @@ def updateByBlocks(blocks):
 
 backupMSG = backup.read()
 if backupMSG:
-	BACKUP_NODES, _ = parseMsg(backupMSG) #get nodes from backup file
+	_, BACKUP_NODES, __ = parseMsg(backupMSG) #get nodes from backup file
 	updateByNodes(BACKUP_NODES)
 	#we dont want to updateByBlocks cause these blocks are probably outdated
 
@@ -213,7 +213,8 @@ def inputLoop():
 				data = sock.recv(1<<10)	
 				if not data: break
 				in_msg += data #MegaByte	
-			nodes,blocks = parseMsg(in_msg)
+			cmd, nodes,blocks = parseMsg(in_msg)
+			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
 			blocks_got_updated = updateByBlocks(blocks)
 			out_message = cutstr(createMsg(2,activeNodes.values()+[SELF_NODE], blocksList))
 			total_bytes_sent = 0
@@ -299,7 +300,7 @@ while True:
 	if not data: break
 	in_msg += data
 out_socket.close()
-nodes,blocks = parseMsg(in_msg)
+_, nodes,blocks = parseMsg(in_msg)
 updateByNodes(nodes)
 updateByBlocks(blocks)
 print activeNodes.viewkeys()
@@ -344,7 +345,8 @@ while True:
 					in_msg += data
 				print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				nodes,blocks = parseMsg(in_msg)
+				cmd, nodes,blocks = parseMsg(in_msg)
+				if cmd != 2: raise ValueError('cmd accepted isnt 2!')
 				updateByNodes(nodes)
 				blocks_got_updated = updateByBlocks(blocks)
 

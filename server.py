@@ -316,6 +316,7 @@ while True:
 		print Fore.CYAN + "- File backup is done"
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
+		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 
 
 	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 min, or when nodes_got_updated is true:
@@ -345,7 +346,6 @@ while True:
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				nodes,blocks = parseMsg(in_msg)
 				updateByNodes(nodes)
-				print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 				blocks_got_updated = updateByBlocks(blocks)
 
 			except socket.timeout as err:	print Fore.MAGENTA 	+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)

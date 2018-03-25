@@ -12,19 +12,21 @@ old_exit=exit
 exit=exit_event.set
 
 #Default values:
+LOCALHOST="127.0.0.1"
 SELF_PORT = 8089
-SELF_IP = localhost = "127.0.0.1"
+SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
 BACKUP_FILE_NAME="backup.bin"
 currentTime = int(time.time())
 TEAM_NAME="Lead"
 TAL_IP="34.244.16.40"
+TAL_PORT=8080
+BIND_RANGE=""
 #try to get ip and port from user input:
 try:
-	if sys.argv[1] == "public":
-		SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
-	elif sys.argv[1] == "local":
-		pass
-	else:
+	if sys.argv[1] == "local":
+		SELF_IP = TAL_IP = BIND_RANGE = LOCALHOST
+		TAL_PORT = 7860
+	elif sys.argv[1] != "public":
 		SELF_IP = sys.argv[1]
 	SELF_PORT = int(sys.argv[2])
 	BACKUP_FILE_NAME=sys.argv[3]
@@ -32,6 +34,7 @@ try:
 	TAL_IP=sys.argv[5]
 except IndexError:
 	pass
+
 periodicalBuffer = sendBuffer = int(time.time())
 #DEBUG: *******************
 periodicalBuffer -= (4*60+0.4*60)
@@ -134,7 +137,7 @@ def createMsg(cmd,nodes_list,blocks):
 def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	for addr,node in nodes_dict.iteritems(): 
-		if ((currentTime - 30*60) < node.ts <= currentTime) and localhost!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
+		if ((currentTime - 30*60) < node.ts <= currentTime) and (LOCALHOST,SELF_PORT)!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
 			print "updated activeNodes:",activeNodes.keys()
 			if addr not in activeNodes.keys(): #Its a new node, lets add it
 				nodes_updated = True
@@ -152,12 +155,12 @@ if DO_BACKUP:
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-listen_socket.bind(('', SELF_PORT))
-
-socket.setdefaulttimeout(30) #All sockets except listen_socket need timeout. may be too short
+listen_socket.bind((BIND_RANGE, SELF_PORT)) #BIND_RANGE='' by default
+global_sends=0
+socket.setdefaulttimeout(120) #All sockets except listen_socket need timeout. may be too short
 out_messages_input=[]
 def inputLoop():
-	global out_messages_input
+	global out_messages_input,global_sends
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
@@ -175,14 +178,19 @@ def inputLoop():
 			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 				updateByNodes(nodes)
 			#updateByBlocks(blocks)
-			out_message=createMsg(2,activeNodes.values()+[SELF_NODE,node("we finally sent a proper response!",1234,"LEAD_RESPONSE",int(time.time()))],[])
+			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
+			sock.shutdown(socket.SHUT_RD)
+			global_sends+=1
+			out_message=createMsg(2,activeNodes.values()+[SELF_NODE,node("did we really do it though?",1234,"LEAD_RESPONSE",int(time.time()))],[])
+			#sock.sendall(out_message)
 			byts=1
 			part=0
-			while byts:
-				byts = sock.send(out_message[part:])
+			while part<len(out_message):
+				byts = sock.send(out_message[part:part+1024])
+				print Fore.YELLOW+str(byts)
 				part += byts
+			sock.shutdown(2)
 			out_messages_input.append(out_message)
-				#sock.shutdown(2)
 		except socket.timeout as err:
 			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:
@@ -220,14 +228,14 @@ inputThread.start()
 
 #getting nodes from tal:
 out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
+out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
 out_msg = createMsg(1,[SELF_NODE],[])
 out_socket.sendall(out_msg)
 in_msg=""
 while True:
-	dat=out_socket.recv(1<<10)
+	dat = out_socket.recv(1<<10)
 	if not dat: break
-	in_msg+=dat
+	in_msg += dat
 out_socket.close()
 cmd,nodes,blocks = parseMsg(in_msg)
 updateByNodes(nodes)
@@ -266,8 +274,15 @@ while True:
 			try:
 				out_socket.connect(addr)
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],[])
-				out_socket.sendall(out_msg)
+				byts=1
+				part=0
+				while part<len(out_msg):
+					byts = out_socket.send(out_msg[part:part+1024])
+					print Fore.YELLOW+str(byts)
+					part += byts
+				out_socket.shutdown(socket.SHUT_WR)
 				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
+				print Fore.GREEN+"[outLoop]: Finished sending, now recieving."
 				in_msg=""
 				while True:
 					dat=out_socket.recv(1<<10)

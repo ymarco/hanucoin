@@ -79,12 +79,21 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 		return len(self.string)
 									
 	def cut(self,bytes):
-		if bytes>len(self.string):
+		if bytes>len(self):
 			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece=self.string[:bytes]
 		self.string=self.string[bytes:]
 		return piece
+
+	def safecut(self,bytes):
+		if bytes>len(self):
+			bytes = len(self)
+		
+		piece=self.string[:bytes]
+		self.string=self.string[bytes:]
+		return piece
+
 
 
 def parseMsg(msg):

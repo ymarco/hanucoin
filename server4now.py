@@ -92,6 +92,14 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 		self.string = self.string[bytes:]
 		return piece
 
+	def safecut(self,bytes):
+		if bytes > len(self.string):
+			bytes = len(self.string)
+		
+		piece = self.string[:bytes]
+		self.string = self.string[bytes:]
+		return piece
+
 
 def parseMsg(msg):
 	if msg == "":
@@ -183,7 +191,7 @@ socket.setdefaulttimeout(10) #All sockets except listen_socket need timeout. may
 out_messages_input=[]
 
 def inputLoop():
-	global out_messages_input
+	global out_messages_input, blocks_got_updated
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
@@ -198,9 +206,11 @@ def inputLoop():
 			#if cmd != 1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 			updateByNodes(nodes)
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
-			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
-			out_messages_input.append(out_message)
+			out_message = cutstr(createMsg(2,activeNodes.values()+[SELF_NODE], blocksList))
+			total_bytes_sent = 0
+			while len(out_message)>0:
+				total_bytes_sent += sock.send(out_message.safecut(1<<10))
+			print Fore.GREEN + "[inputLoop]: sent %d total bytes back to %s" % (total_bytes_sent,strAddress(addr))
 			#sock.shutdown(2)
 		except socket.timeout as err:	print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:		print Fore.RED+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later

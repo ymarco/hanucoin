@@ -120,7 +120,7 @@ def parseMsg(msg):
 	nodes = {}
 	blocks =  []
 	try:
-		if struct.unpack(">I",msg.cut(4))[0] != 2: raise ValueError("[parseMsg]: cmd recieved isnt 2!")
+		if struct.unpack(">I",msg.cut(4))[0] != 1: raise ValueError("[parseMsg]: cmd recieved isnt 1!")
 		if msg.cut(4) != START_NODES: raise ValueError("Wrong start_nodes")
 		node_count 	= struct.unpack(">I",msg.cut(4))[0]
 		for _ in xrange(node_count):
@@ -310,7 +310,7 @@ while True:
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		backup.seek(0) #go to the start of the file
-		backup.write(createMsg(2,activeNodes.values(),blocksList)) #write in the new backup
+		backup.write(createMsg(1,activeNodes.values(),blocksList)) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
 		backup.flush() #save info.
 		print Fore.CYAN + "- File backup is done"

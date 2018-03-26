@@ -20,9 +20,9 @@ localhost = '127.0.0.1'
 currentTime = int(time.time())
 TEAM_NAME="Lead"
 TAL_IP="34.244.16.40"
-mining_slice_1 = 1
-mining_slice_2 = 1
+mining_slices = "1/1"
 TIME_BETWEEN_SENDS = 5*60 #5 min
+send_self_node = True
 #try to get ip and port from user input:
 try:
 	SELF_PORT = int(sys.argv[1])
@@ -30,6 +30,7 @@ try:
 								#{say we want to run 3 servers, we'll run the 1st in '1/3' slice, 2nd in '2/3' slice, 3rd in '3/3' slice
 								#{so they try numbers for mining from different xranges. 
 	TIME_BETWEEN_SENDS = int(sys.argv[3]) #in secs
+	send_self_node = bool(sys.argv[4])
 except IndexError: pass
 
 mining_slice_1,mining_slice_2 = mining_slices.split('/')
@@ -72,7 +73,8 @@ class node(object):
 	def __getitem__(self,index):
 		return (self.host,self.port,self.name,self.ts)[index]
 
-SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
+if send_self_node: SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
+else: SELF_NODE = []
 
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
@@ -218,10 +220,9 @@ def inputLoop():
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
 			listen_socket.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = cutstr(createMsg(2,activeNodes.values()+[SELF_NODE], blocksList))
+			out_message = cutstr(createMsg(2, activeNodes.values()+[SELF_NODE], blocksList))
 			total_bytes_sent = 0
-			while len(out_message)>0:
-				total_bytes_sent += sock.send(out_message.safecut(1<<8))
+			total_bytes_sent += sock.sendall(out_message.safecut(1<<8))
 			print Fore.GREEN + "[inputLoop]: sent %d total bytes back to %s" % (total_bytes_sent,strAddress(addr))
 			sock.shutdown(2)
 		except socket.timeout as err:	print Fore.MAGENTA	+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
@@ -296,6 +297,7 @@ out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
 out_msg = createMsg(1,[SELF_NODE],[])
 out_socket.sendall(out_msg)
+print "sent %d bytes to tal" % len(out_msg)
 in_msg = ""
 while True:
 	data = out_socket.recv(1<<10)
@@ -313,7 +315,7 @@ while True:
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		backup.seek(0) #go to the start of the file
-		backup.write(createMsg(1,activeNodes.values(),blocksList)) #write in the new backup
+		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
 		backup.flush() #save info.
 		print Fore.CYAN + "- File backup is done"

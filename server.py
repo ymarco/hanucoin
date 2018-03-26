@@ -213,8 +213,9 @@ def inputLoop():
 				data = sock.recv(1<<10)	
 				if not data: break
 				in_msg += data #MegaByte	
-			cmd, nodes,blocks = parseMsg(in_msg)
+			cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
+			listen_socket.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
 			out_message = cutstr(createMsg(2,activeNodes.values()+[SELF_NODE], blocksList))
 			total_bytes_sent = 0
@@ -337,7 +338,7 @@ while True:
 				out_socket.connect(nod[:2])
 				out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
 				out_socket.sendall(out_msg)  
-				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
+				out_socket.shutdown(socket.SHUT_WR) #Finished sending, now listening.
 				in_msg = ""
 				while True:
 					data = out_socket.recv(1<<10)

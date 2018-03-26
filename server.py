@@ -21,6 +21,7 @@ currentTime = int(time.time())
 TEAM_NAME="Lead"
 TAL_IP="34.244.16.40"
 mining_slices = "1/1"
+TAL_PORT=8080
 TIME_BETWEEN_SENDS = 5*60 #5 min
 send_self_node = True
 #try to get ip and port from user input:
@@ -73,9 +74,12 @@ class node(object):
 	def __getitem__(self,index):
 		return (self.host,self.port,self.name,self.ts)[index]
 
+
 if send_self_node: SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 else: SELF_NODE = []
 
+class CutError(IndexError):
+	pass
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string = string
@@ -91,24 +95,7 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 									
 	def cut(self,bytes):
 		if bytes > len(self.string):
-			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
-		
-		piece = self.string[:bytes]
-		self.string = self.string[bytes:]
-		return piece
-
-	def safecut(self,bytes): #like cut, but if cutting isnt possible returns the whole string instead of Exception
-		""">>>test = cutstr('012345')
-		   >>>test.safecut(4)
-		   '0123'
-		   #test.string is now '45'
-		   >>>string.safecut(4)
-		   '45'
-		   >>>test.string
-		   ''
-		"""
-		if bytes > len(self.string):
-			bytes = len(self.string)
+			raise CutError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece = self.string[:bytes]
 		self.string = self.string[bytes:]
@@ -140,8 +127,8 @@ def parseMsg(msg):
 		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
-	except IndexError as err:
-		print Fore.RED+ "    [parseMsg]: Message too short, cut error:",err
+	except CutError as err:
+		print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
 		blocks = [] #we dont want damaged blocks
 	return cmd, nodes, blocks
 
@@ -211,19 +198,19 @@ def inputLoop():
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
 		try:
 			in_msg = ""
-			time.sleep(0.2)
 			while True:
 				data = sock.recv(1<<10)	
 				if not data: break
 				in_msg += data #MegaByte	
 			cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
-			listen_socket.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
+			sock.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = cutstr(createMsg(2, activeNodes.values()+[SELF_NODE], blocksList))
-			total_bytes_sent = 0
-			total_bytes_sent += sock.sendall(out_message.safecut(1<<8))
-			print Fore.GREEN + "[inputLoop]: sent %d total bytes back to %s" % (total_bytes_sent,strAddress(addr))
+			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
+			bytes_sent = 0
+			while bytes_sent<len(out_message):
+				bytes_sent += sock.send(out_message[bytes_sent:])
+			print Fore.GREEN + "[inputLoop]: sent %d bytes back to %s" % (bytes_sent,strAddress(addr))
 			sock.shutdown(2)
 		except socket.timeout as err:	print Fore.MAGENTA	+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:		print Fore.RED 		+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
@@ -292,28 +279,30 @@ miningThread.start()
 
 
 
-#getting nodes & blocks from Tal:
-out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
-out_msg = createMsg(1,[SELF_NODE],[])
-out_socket.sendall(out_msg)
-print "sent %d bytes to tal" % len(out_msg)
-in_msg = ""
-while True:
-	data = out_socket.recv(1<<10)
-	if not data: break
-	in_msg += data
-out_socket.close()
-_, nodes,blocks = parseMsg(in_msg)
-updateByNodes(nodes)
-updateByBlocks(blocks)
-print activeNodes.viewkeys()
+def CommMain(): #Send and recieve packets from Tal
+	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
+	out_msg = createMsg(1,[SELF_NODE],[])
+	out_socket.sendall(out_msg)
+	print "sent %d bytes to tal" % len(out_msg)
+	in_msg = ""
+	while True:
+		data = out_socket.recv(1<<10)
+		if not data: break
+		in_msg += data
+	out_socket.close()
+	cmd,nodes,blocks = parseMsg(in_msg)
+	updateByNodes(nodes)
+	updateByBlocks(blocks)
+	print activeNodes.viewkeys()
 
+
+CommMain()
 
 
 while True:
 	currentTime = int(time.time())
-	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
+	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 minutes: 
 		backup.seek(0) #go to the start of the file
 		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
@@ -321,10 +310,12 @@ while True:
 		print Fore.CYAN + "- File backup is done"
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
+
 		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 
+		CommMain() #Ensure that we are still up with the main server (Tal)
 
-	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 min, or when nodes_got_updated is true:
+	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = currentTime #resetting the timer
 		nodes_got_updated = blocks_got_updated = False #Turn off the flag for triggering this very If nest.
 		print "deleting event has started"
@@ -340,10 +331,11 @@ while True:
 			try:
 				out_socket.connect(nod[:2])
 				out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-				out_socket.sendall(out_msg)  
+				bytes_sent=0
+				while bytes_sent<len(out_msg):
+					bytes_sent += out_socket.send(out_msg[bytes_sent:])
 				out_socket.shutdown(socket.SHUT_WR) #Finished sending, now listening.
 				in_msg = ""
-				time.sleep(0.2)
 				while True:
 					data = out_socket.recv(1<<10)
 					if not data: break

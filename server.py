@@ -169,7 +169,7 @@ def updateByBlocks(blocks):
 		blocksList =blocks
 		return True
 	#else: check if ((list is longer than ours) and (last block is valid)) and (the lists are connected)
-	if (len(blocksList) < len(blocks)) and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blocksList[-1],blocks[len(blocksList)])==0:
+	if (len(blocksList) < len(blocks)): # and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blocksList[-1],blocks[len(blocksList)])==0:
 		blocksList = blocks
 		return True
 	return False

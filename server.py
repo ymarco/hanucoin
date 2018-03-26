@@ -306,7 +306,7 @@ while True:
 
 		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 
-		if (TAL_IP,TAL_PORT) not in activeNodes.keys(): CommMain() #Retry communicating with Tal
+		CommMain() #Ensure that we are still up with the main server (Tal)
 
 	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = currentTime #resetting the timer

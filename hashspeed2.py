@@ -138,6 +138,7 @@ def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
             return block_bin # new block
     return None
 
+
 def MineCoin(my_wallet, prev_block_bin):
     new_block = None
     while not new_block:

@@ -20,6 +20,7 @@ localhost = '127.0.0.1'
 currentTime = int(time.time())
 TEAM_NAME="Lead"
 TAL_IP="34.244.16.40"
+TAL_PORT=8080
 mining_slice_1 = 1
 mining_slice_2 = 1
 TIME_BETWEEN_SENDS = 5*60 #5 min
@@ -274,27 +275,27 @@ miningThread.start()
 
 
 
-#getting nodes & blocks from Tal:
-out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
-out_msg = createMsg(1,[SELF_NODE],[])
-out_socket.sendall(out_msg)
-in_msg = ""
-while True:
-	data = out_socket.recv(1<<10)
-	if not data: break
-	in_msg += data
-out_socket.close()
-_, nodes,blocks = parseMsg(in_msg)
-updateByNodes(nodes)
-updateByBlocks(blocks)
-print activeNodes.viewkeys()
-
+def CommMain(): #Send and recieve packets from Tal
+	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
+	out_msg = createMsg(1,[SELF_NODE],[])
+	out_socket.sendall(out_msg)
+	in_msg = ""
+	while True:
+		data = out_socket.recv(1<<10)
+		if not data: break
+		in_msg += data
+	out_socket.close()
+	cmd,nodes,blocks = parseMsg(in_msg)
+	updateByNodes(nodes)
+	updateByBlocks(blocks)
+	print activeNodes.viewkeys()
+CommMain()
 
 
 while True:
 	currentTime = int(time.time())
-	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
+	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 minutes: 
 		backup.seek(0) #go to the start of the file
 		backup.write(createMsg(1,activeNodes.values(),blocksList)) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
@@ -302,10 +303,12 @@ while True:
 		print Fore.CYAN + "- File backup is done"
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
+
 		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 
+		if (TAL_IP,TAL_PORT) not in activeNodes.keys(): CommMain() #Retry communicating with Tal
 
-	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 min, or when nodes_got_updated is true:
+	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = currentTime #resetting the timer
 		nodes_got_updated = blocks_got_updated = False #Turn off the flag for triggering this very If nest.
 		print "deleting event has started"

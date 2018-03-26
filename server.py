@@ -73,7 +73,8 @@ class node(object):
 		return (self.host,self.port,self.name,self.ts)[index]
 
 SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
-
+class CutError(IndexError):
+	pass
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string = string
@@ -89,24 +90,7 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 									
 	def cut(self,bytes):
 		if bytes > len(self.string):
-			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
-		
-		piece = self.string[:bytes]
-		self.string = self.string[bytes:]
-		return piece
-
-	def safecut(self,bytes): #like cut, but if cutting isnt possible returns the whole string instead of Exception
-		""">>>test = cutstr('012345')
-		   >>>test.safecut(4)
-		   '0123'
-		   #test.string is now '45'
-		   >>>string.safecut(4)
-		   '45'
-		   >>>test.string
-		   ''
-		"""
-		if bytes > len(self.string):
-			bytes = len(self.string)
+			raise CutError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece = self.string[:bytes]
 		self.string = self.string[bytes:]
@@ -138,8 +122,8 @@ def parseMsg(msg):
 		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
-	except IndexError as err:
-		print Fore.RED+ "    [parseMsg]: Message too short, cut error:",err
+	except CutError as err:
+		print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
 		blocks = [] #we dont want damaged blocks
 	return cmd, nodes, blocks
 
@@ -215,13 +199,13 @@ def inputLoop():
 				in_msg += data #MegaByte	
 			cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
-			listen_socket.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
+			sock.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = cutstr(createMsg(2,activeNodes.values()+[SELF_NODE], blocksList))
-			total_bytes_sent = 0
-			while len(out_message)>0:
-				total_bytes_sent += sock.send(out_message.safecut(1<<8))
-			print Fore.GREEN + "[inputLoop]: sent %d total bytes back to %s" % (total_bytes_sent,strAddress(addr))
+			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
+			bytes_sent = 0
+			while bytes_sent<len(out_message):
+				bytes_sent += sock.send(out_message[bytes_sent:])
+			print Fore.GREEN + "[inputLoop]: sent %d bytes back to %s" % (bytes_sent,strAddress(addr))
 			sock.shutdown(2)
 		except socket.timeout as err:	print Fore.MAGENTA	+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:		print Fore.RED 		+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
@@ -337,7 +321,9 @@ while True:
 			try:
 				out_socket.connect(nod[:2])
 				out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-				out_socket.sendall(out_msg)  
+				bytes_sent=0
+				while bytes_sent<len(out_msg):
+					bytes_sent += out_socket.send(out_msg[bytes_sent:])
 				out_socket.shutdown(socket.SHUT_WR) #Finished sending, now listening.
 				in_msg = ""
 				while True:

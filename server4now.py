@@ -190,7 +190,7 @@ def inputLoop():
 			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
 			sock.shutdown(socket.SHUT_RD)
 			global_sends+=1
-			out_message=createMsg(2,activeNodes.values()+[SELF_NODE,node("did we really do it though?",1234,"LEAD_RESPONSE",int(time.time()))],[])
+			out_message=createMsg(2,[],[])
 			#sock.sendall(out_message)
 			byts=1
 			part=0

@@ -36,8 +36,8 @@ mining_slice_1,mining_slice_2 = mining_slices.split('/')
 mining_slice_1 = int(mining_slice_1) #we want these as numbers, not strings
 mining_slice_2 = int(mining_slice_2)
 
-MINING_STARTPOINT = ((mining_slice_1 -1)*(1<<16))/mining_slice_2
-MINING_STOPPOINT = ((mining_slice_1)*(1<<16))/mining_slice_2
+MINING_STARTPOINT = ((mining_slice_1 -1)*(1<<15))/mining_slice_2
+MINING_STOPPOINT = ((mining_slice_1)*(1<<15))/mining_slice_2
 
 
 periodicalBuffer = sendBuffer = int(time.time())
@@ -216,11 +216,9 @@ def inputLoop():
 			cmd, nodes,blocks = parseMsg(in_msg)
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = cutstr(createMsg(2,activeNodes.values()+[SELF_NODE], blocksList))
-			total_bytes_sent = 0
-			while len(out_message)>0:
-				total_bytes_sent += sock.send(out_message.safecut(1<<8))
-			print Fore.GREEN + "[inputLoop]: sent %d total bytes back to %s" % (total_bytes_sent,strAddress(addr))
+			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
+			sock.sendall(out_message)
+			print Fore.GREEN + "[inputLoop]: sent %d total bytes back to %s" % (len(out_msg),strAddress(addr))
 			sock.shutdown(2)
 		except socket.timeout as err:	print Fore.MAGENTA	+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:		print Fore.RED 		+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
@@ -244,7 +242,7 @@ def miningLoop():
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i*(1<<16)
 				new_block= hashspeed2.MineCoinAttempts(wallet, blocksList[-1],start_num,1<<16) 
-				if blocks_got_updated or new_block!=None: break #start all over again, its a new block
+				if blocks_got_updated or new_block!=None: break #start all over again, we have a new block
 
 			if blocks_got_updated == True: print Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block"
 			elif new_block != None: 

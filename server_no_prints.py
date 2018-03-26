@@ -236,7 +236,7 @@ def miningLoop():
 	global blocksList, blocks_got_updated
 	while True:
 		if blocksList: #blocksList aint empty
-			if hashspeed2.unpack_clock_to_tuple(blocksList[-1])[1] == SELF_WALLET:
+			if hashspeed2.unpack_block_to_tuple(blocksList[-1])[1] == SELF_WALLET:
 				wallet = NOONE_WALLET
 				#print Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress' 
 			else: 

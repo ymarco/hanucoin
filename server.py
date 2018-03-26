@@ -197,7 +197,7 @@ if backupMSG:
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-socket.setdefaulttimeout(5) #All sockets except listen_socket need timeout. may be too short
+socket.setdefaulttimeout(10) #All sockets except listen_socket need timeout. may be too short
 #listen_socket will run on its own inputLoop and as so doesnt need timeout
 out_messages_input=[]
 
@@ -235,7 +235,7 @@ def miningLoop():
 	global blocksList, blocks_got_updated
 	while True:
 		if blocksList: #blocksList aint empty
-			if hashspeed2.unpack_clock_to_tuple(blocksList[-1])[1] == SELF_WALLET:
+			if hashspeed2.unpack_block_to_tuple(blocksList[-1])[1] == SELF_WALLET:
 				wallet = NOONE_WALLET
 				print Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress' 
 			else: 
@@ -352,7 +352,7 @@ while True:
 				blocks_got_updated = updateByBlocks(blocks)
 
 			except socket.timeout as err:	print Fore.MAGENTA 	+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
-			except socket.error as err:		print Fore.GREEN 	+'[outputLoop]: Sent and recieved a message from {}, the soc was closed by them'.format(nod[:3])
+			except socket.error as err:		print Fore.RED 	+'[outputLoop]: socket.error: while connected to {}, error: "{}"'.format(nod[:3],err)
 			except ValueError as err:		print Fore.MAGENTA 	+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
 			else:							print Fore.GREEN 	+'[outputLoop]: Sent and recieved a message from: {}'.format(nod[:3])
 			finally:						out_socket.close()

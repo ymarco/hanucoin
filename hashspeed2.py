@@ -94,15 +94,15 @@ def CheckBlockSignature(serial, wallet, prev_sig, puzzle, block_sig):
         return 5
     return 0
 
-def unpack_clock_to_tuple(block_bin):
+def unpack_block_to_tuple(block_bin):
     return struct.unpack(">LL8sL12s", block_bin)
 
 def IsValidBlock(prev_block_bin, block_bin):
     """Check if block_bin is valid given the previous block.
     return 0 if Block ok, a reason number if not.
     """
-    prev_block = unpack_clock_to_tuple(prev_block_bin)
-    block = unpack_clock_to_tuple(block_bin)
+    prev_block = unpack_block_to_tuple(prev_block_bin)
+    block = unpack_block_to_tuple(block_bin)
     return IsValidBlockUnpacked(prev_block, block)
 
 
@@ -127,7 +127,7 @@ def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
     prev_half = prev_sig[:8]
     n_zeros = NumberOfZerosForPuzzle(new_serial)
     if start_num+attempts_count > 1<<32: attempts_count = 1<<32 - start_num
-    for puzzle in exrange(start_num,start_num+attempts_count):
+    for puzzle in exrange(start_num,start_num+attempts_count): #same as xrange but for numbers bigger than 32 bit (utils.py)
         #print new_serial, my_wallet, prev_half, puzzle
         block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, puzzle)
         m = hashlib.md5()

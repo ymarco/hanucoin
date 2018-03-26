@@ -2,7 +2,7 @@ import hashlib
 import struct
 import random
 import itertools
-
+from utils import *
 def Log2(n):
     """Log2(n) - how many times n can be be divided by2 before it is zero.
     >>> Log2(0)
@@ -127,7 +127,7 @@ def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
     prev_half = prev_sig[:8]
     n_zeros = NumberOfZerosForPuzzle(new_serial)
     if start_num+attempts_count > 1<<32: attempts_count = 1<<32 - start_num
-    for puzzle in itertools.count(start_num):
+    for puzzle in exrange(start_num,start_num+attempts_count):
         #print new_serial, my_wallet, prev_half, puzzle
         block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, puzzle)
         m = hashlib.md5()
@@ -136,7 +136,8 @@ def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
         if CheckSignature(sig, n_zeros):
             block_bin += sig[:12]
             return block_bin # new block
-        if puzzle == start_num + attempts_count :return None # could not find block in attempts_count
+    return None
+
 
 def MineCoin(my_wallet, prev_block_bin):
     new_block = None

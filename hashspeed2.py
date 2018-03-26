@@ -136,7 +136,7 @@ def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
         if CheckSignature(sig, n_zeros):
             block_bin += sig[:12]
             return block_bin # new block
-        if puzzle == 1<<32 -1:return None # could not find block in attempts_count
+        if puzzle == start_num + attempts_count :return None # could not find block in attempts_count
 
 def MineCoin(my_wallet, prev_block_bin):
     new_block = None

@@ -193,7 +193,6 @@ def inputLoop():
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
 		try:
 			in_msg = ""
-			time.sleep(0.2)
 			while True:
 				data = sock.recv(1<<10)	
 				if not data: break
@@ -327,7 +326,6 @@ while True:
 					bytes_sent += out_socket.send(out_msg[bytes_sent:])
 				out_socket.shutdown(socket.SHUT_WR) #Finished sending, now listening.
 				in_msg = ""
-				time.sleep(0.2)
 				while True:
 					data = out_socket.recv(1<<10)
 					if not data: break

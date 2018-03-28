@@ -13,7 +13,7 @@ exit = exit_event.set
 
 #Default values:
 SELF_WALLET = hashspeed2.WalletCode(["Lead"])
-NOONE_WALLET = hashspeed2.WalletCode(["no_body"])
+NOONE_WALLET = hashspeed2.WalletCode(["Bob"])
 SELF_PORT = 8089
 SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
 localhost = '127.0.0.1'
@@ -186,7 +186,7 @@ if backupMSG:
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-socket.setdefaulttimeout(10) #All sockets except listen_socket need timeout. may be too short
+socket.setdefaulttimeout(5) #All sockets except listen_socket need timeout. may be too short
 #listen_socket will run on its own inputLoop and as so doesnt need timeout
 out_messages_input=[]
 
@@ -282,20 +282,22 @@ miningThread.start()
 def CommMain(): #Send and recieve packets from Tal
 	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 	out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
-	out_msg = createMsg(1,[SELF_NODE],[])
-	out_socket.sendall(out_msg)
-	print "sent %d bytes to tal" % len(out_msg)
-	in_msg = ""
-	while True:
-		data = out_socket.recv(1<<10)
-		if not data: break
-		in_msg += data
-	out_socket.close()
-	cmd,nodes,blocks = parseMsg(in_msg)
-	updateByNodes(nodes)
-	updateByBlocks(blocks)
-	print activeNodes.viewkeys()
-
+	out_msg = createMsg(1,[SELF_NODE],blocksList)
+	try:
+		out_socket.sendall(out_msg)
+		print "sent %d bytes to tal" % len(out_msg)
+		in_msg = ""
+		while True:
+			data = out_socket.recv(1<<10)
+			if not data: break
+			in_msg += data
+		out_socket.close()
+		cmd,nodes,blocks = parseMsg(in_msg)
+		updateByNodes(nodes)
+		updateByBlocks(blocks)
+		print activeNodes.viewkeys()
+	except Exception as err:
+		print "[CommMain]: Error:",err
 
 CommMain()
 

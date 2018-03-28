@@ -20,10 +20,10 @@ localhost = '127.0.0.1'
 currentTime = int(time.time())
 TEAM_NAME="Lead"
 TAL_IP="34.244.16.40"
-mining_slice_1 = 1
-mining_slice_2 = 1
+mining_slices = "1/1"
+TAL_PORT=8080
 TIME_BETWEEN_SENDS = 5*60 #5 min
-backup = open("backup.bin","r+b")
+send_self_node = True
 #try to get ip and port from user input:
 try:
 	SELF_PORT = int(sys.argv[1])
@@ -31,14 +31,15 @@ try:
 								#{say we want to run 3 servers, we'll run the 1st in '1/3' slice, 2nd in '2/3' slice, 3rd in '3/3' slice
 								#{so they try numbers for mining from different xranges. 
 	TIME_BETWEEN_SENDS = int(sys.argv[3]) #in secs
+	send_self_node = bool(sys.argv[4])
 except IndexError: pass
 
 mining_slice_1,mining_slice_2 = mining_slices.split('/')
 mining_slice_1 = int(mining_slice_1) #we want these as numbers, not strings
 mining_slice_2 = int(mining_slice_2)
 
-MINING_STARTPOINT = ((mining_slice_1 -1)*(1<<16))/mining_slice_2 #{look at miningLoop,
-MINING_STOPPOINT = ((mining_slice_1)*(1<<16))/mining_slice_2 	 #{its simpler than it looks
+MINING_STARTPOINT = ((mining_slice_1 -1)*(1<<16))/mining_slice_2
+MINING_STOPPOINT = ((mining_slice_1)*(1<<16))/mining_slice_2
 
 
 periodicalBuffer = sendBuffer = int(time.time())
@@ -50,9 +51,8 @@ nodes_got_updated = False #flag for when a new node is added.
 blocks_got_updated = False #flag for when someone (might be us) succeeds in mining.
 START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
-
-
-activeNodes={} #saved as: (ip, port): node(host,port,name,ts) 
+backup = open("backup.bin","r+b")
+activeNodes={} #saved as: {(ip, port): node(host,port,name,ts)...} 
 blocksList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
 
 
@@ -74,8 +74,12 @@ class node(object):
 	def __getitem__(self,index):
 		return (self.host,self.port,self.name,self.ts)[index]
 
-SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
 
+if send_self_node: SELF_NODE=node(SELF_IP,SELF_PORT,TEAM_NAME,currentTime)
+else: SELF_NODE = []
+
+class CutError(IndexError):
+	pass
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string = string
@@ -91,24 +95,7 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 									
 	def cut(self,bytes):
 		if bytes > len(self.string):
-			raise IndexError("String too short for cutting by " + str(bytes) + " bytes.")
-		
-		piece = self.string[:bytes]
-		self.string = self.string[bytes:]
-		return piece
-
-	def safecut(self,bytes): #like cut, but if cutting isnt possible returns the whole string
-		""">>>test = cutstr('012345')
-		   >>>test.safecut(4)
-		   '0123'
-		   #test.string is now '45'
-		   >>>string.safecut(4)
-		   '45'
-		   >>>test.string
-		   ''
-		"""
-		if bytes > len(self.string):
-			bytes = len(self.string)
+			raise CutError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece = self.string[:bytes]
 		self.string = self.string[bytes:]
@@ -116,13 +103,13 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 
 
 def parseMsg(msg):
-	if msg == "": raise ValueError("[parseMsg]: msg is empty")		
+	if msg == "": raise ValueError("[parseMsg]: msg is empty")
 	#else:
 	msg = cutstr(msg)
 	nodes = {}
 	blocks =  []
 	try:
-		if struct.unpack(">I",msg.cut(4))[0] != 2: raise ValueError("[parseMsg]: cmd recieved isnt 2!")
+		cmd = struct.unpack(">I",msg.cut(4))[0]
 		if msg.cut(4) != START_NODES: raise ValueError("Wrong start_nodes")
 		node_count 	= struct.unpack(">I",msg.cut(4))[0]
 		for _ in xrange(node_count):
@@ -137,16 +124,16 @@ def parseMsg(msg):
 		if msg.cut(4) != START_BLOCKS: 
 			raise ValueError("Wrong start_blocks")
 		block_count=struct.unpack(">I",msg.cut(4))[0]
-		#print "    [parseMsg]: block_count:", block_count 
+		#print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
-			blocks.append(msg.cut(32))
-	except IndexError as err:
-		print Fore.RED+ "    [parseMsg]: Message too short, cut error:",err
+			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
+	except CutError as err:
+		#print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
 		blocks = [] #we dont want damaged blocks
-	return nodes, blocks
+	return cmd, nodes, blocks
 
 
-def createMsg(cmd,nodes,blocks_bin_list):
+def createMsg(cmd,nodes,blocks):
 
 	parsed_cmd = struct.pack(">I", cmd)
 	nodes_count = struct.pack(">I",len(nodes))	
@@ -157,7 +144,7 @@ def createMsg(cmd,nodes,blocks_bin_list):
 
 	block_count = struct.pack(">I", len(blocks))
 	parsed_blocks = ''
-	for block in blocks_bin_list:
+	for block in blocks:
 		 parsed_blocks += block     		   	
 		
 	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
@@ -189,17 +176,17 @@ def updateByBlocks(blocks):
 
 
 
-if DO_BACKUP:
-	backupMSG = backup.read()
-	if backupMSG:
-		BACKUP_NODES,__=parseMsg(backupMSG) #get nodes from backup file
-		updateByNodes(BACKUP_NODES)
+backupMSG = backup.read()
+if backupMSG:
+	_, BACKUP_NODES, __ = parseMsg(backupMSG) #get nodes from backup file
+	updateByNodes(BACKUP_NODES)
+	#we dont want to updateByBlocks cause these blocks are probably outdated
 
 #listen_socket is global
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-socket.setdefaulttimeout(5) #All sockets except listen_socket need timeout. may be too short
+socket.setdefaulttimeout(10) #All sockets except listen_socket need timeout. may be too short
 #listen_socket will run on its own inputLoop and as so doesnt need timeout
 out_messages_input=[]
 
@@ -215,14 +202,15 @@ def inputLoop():
 				data = sock.recv(1<<10)	
 				if not data: break
 				in_msg += data #MegaByte	
-			nodes,blocks = parseMsg(in_msg)
-			updateByNodes(nodes)
+			cmd,nodes,blocks = parseMsg(in_msg)
+			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
+			sock.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = cutstr(createMsg(2,activeNodes.values()+[SELF_NODE], blocksList))
-			total_bytes_sent = 0
-			while len(out_message)>0:
-				total_bytes_sent += sock.send(out_message.safecut(1<<8))
-			#print Fore.GREEN + "[inputLoop]: sent %d total bytes back to %s" % (total_bytes_sent,strAddress(addr))
+			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
+			bytes_sent = 0
+			while bytes_sent<len(out_message):
+				bytes_sent += sock.send(out_message[bytes_sent:])
+			#print Fore.GREEN + "[inputLoop]: sent %d bytes back to %s" % (bytes_sent,strAddress(addr))
 			sock.shutdown(2)
 		except socket.timeout as err:	pass#print Fore.MAGENTA	+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:		pass#print Fore.RED 		+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
@@ -238,10 +226,10 @@ def miningLoop():
 		if blocksList: #blocksList aint empty
 			if hashspeed2.unpack_block_to_tuple(blocksList[-1])[1] == SELF_WALLET:
 				wallet = NOONE_WALLET
-				#print Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress' 
+				pass#print Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress' 
 			else: 
 				wallet = SELF_WALLET
-				#print Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress' 
+				pass#print Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress' 
 
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i*(1<<16)
@@ -250,15 +238,15 @@ def miningLoop():
 
 			if blocks_got_updated == True: pass#print Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block"
 			elif new_block != None: 
-				#print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
-				#print new_block, len(new_block), type(new_block)
-				#print hashspeed2.IsValidBlock(blocksList[-1],new_block)
+				pass#print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
+				pass#print new_block, len(new_block), type(new_block)
+				pass#print hashspeed2.IsValidBlock(blocksList[-1],new_block)
 				blocksList.append(new_block)
 				blocks_got_updated = True
-			else: pass#print Fore.RED + "[miningLoop]: WTF! no succes after 2^32 tries... there's a big problem here..." #the for loop finished without breaking ?!
+			else: pass#print Fore.RED + "[miningLoop]:no succes after %d*2^16 tries ;(" % (MINING_STOPPOINT-MINING_STARTPOINT) #the for loop finished without breaking :(
 				
 		else:
-			#print Fore.YELLOW + "[miningLoop]: blocksList is empty"
+			pass#print Fore.YELLOW + "[miningLoop]: blocksList is empty"
 			time.sleep(3) #wait, maybe blocksList will get updated.
 		time.sleep(0.1)
 
@@ -268,7 +256,7 @@ def addNode(ip,port,name,ts):
 	global activeNodes
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
 
-def debugLoop(): #4th (!) thread for printing wanted variables.
+def debugLoop(): #4th (!) thread for mostly printing wanted variables.
 	global sendBuffer,periodicalBuffer,activeNodes,blocksList,currentTime, nodes_got_updated
 	while True:
 		try:
@@ -277,9 +265,9 @@ def debugLoop(): #4th (!) thread for printing wanted variables.
 			else: exec inpt
 		except Exception as err: pass#print err
 
-#debugThread = threading.Thread(target = debugLoop, name = "debug")
-#debugThread.daemon = True
-#debugThread.start()
+debugThread = threading.Thread(target = debugLoop, name = "debug")
+debugThread.daemon = True
+debugThread.start()
 
 inputThread=threading.Thread(target = inputLoop, name = "input")
 inputThread.daemon = True
@@ -291,69 +279,76 @@ miningThread.start()
 
 
 
-#getting nodes from tal:
-out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP, 8080)) #Tal's main server - TeamDebug
-out_msg = createMsg(1,[SELF_NODE],[])
-out_socket.sendall(out_msg)
-in_msg = ""
-while True:
-	data = out_socket.recv(1<<10)
-	if not data: break
-	in_msg += data
-out_socket.close()
-nodes,blocks = parseMsg(in_msg)
-updateByNodes(nodes)
-updateByBlocks(blocks)
-#print activeNodes.viewkeys()
+def CommMain(): #Send and recieve packets from Tal
+	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
+	out_msg = createMsg(1,[SELF_NODE],[])
+	out_socket.sendall(out_msg)
+	pass#print "sent %d bytes to tal" % len(out_msg)
+	in_msg = ""
+	while True:
+		data = out_socket.recv(1<<10)
+		if not data: break
+		in_msg += data
+	out_socket.close()
+	cmd,nodes,blocks = parseMsg(in_msg)
+	updateByNodes(nodes)
+	updateByBlocks(blocks)
+	pass#print activeNodes.viewkeys()
 
+
+CommMain()
 
 
 while True:
 	currentTime = int(time.time())
-	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
+	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 minutes: 
 		backup.seek(0) #go to the start of the file
-		backup.write(createMsg(1,activeNodes.values(),blocksList)) #write in the new backup
+		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
 		backup.truncate() #delete anything left from the previous backup
 		backup.flush() #save info.
-		#print Fore.CYAN + "- File backup is done"
+		pass#print Fore.CYAN + "- File backup is done"
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
+		pass#print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 
-	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 min, or when nodes_got_updated is true:
+		CommMain() #Ensure that we are still up with the main server (Tal)
+
+	if nodes_got_updated or blocks_got_updated or currentTime-TIME_BETWEEN_SENDS >= sendBuffer: 		#Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = currentTime #resetting the timer
 		nodes_got_updated = blocks_got_updated = False #Turn off the flag for triggering this very If nest.
-		#print "deleting event has started"
+		pass#print "deleting event has started"
 		#DELETE 30 MIN OLD NODES:
 		for nod in activeNodes.values(): #values rather than itervalues is important because we are deleting keys from the dictionary.
 			if currentTime - nod.ts > 30*60: #the node wasnt seen in 30 min:
-				#print Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(nod[:3])
+				pass#print Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(nod[:3])
 				del activeNodes[nod[:2]] #nod[:2] returns (host,port) which happens to also be nod's key in activeNodes
 
 		for nod in random.sample(activeNodes.viewvalues(), min(3,len(activeNodes))): #Random 3 addresses (or less when there are less than 3 available)
 			out_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM) #creates a new socket to connect for every address. ***A better solution needs to be found
-			#print Fore.CYAN + "[outputLoop]: trying to send {} a message:".format(nod[:3])
+			pass#print Fore.CYAN + "[outputLoop]: trying to send {} a message:".format(nod[:3])
 			try:
 				out_socket.connect(nod[:2])
 				out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
-				out_socket.sendall(out_msg)  
-				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
+				bytes_sent=0
+				while bytes_sent<len(out_msg):
+					bytes_sent += out_socket.send(out_msg[bytes_sent:])
+				out_socket.shutdown(socket.SHUT_WR) #Finished sending, now listening.
 				in_msg = ""
 				while True:
 					data = out_socket.recv(1<<10)
 					if not data: break
 					in_msg += data
-				#print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
+				pass#print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				nodes,blocks = parseMsg(in_msg)
-				#if cmd = 1: raise ValueError("its not a reply msg!") | will be handled later with try,except
+				cmd, nodes,blocks = parseMsg(in_msg)
+				if cmd != 2: raise ValueError('cmd accepted isnt 2!')
 				updateByNodes(nodes)
-				#print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 				blocks_got_updated = updateByBlocks(blocks)
 
 			except socket.timeout as err:	pass#print Fore.MAGENTA 	+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
-			except socket.error as err:		pass#print Fore.GREEN 	+'[outputLoop]: Sent and recieved a message from {}, the soc was closed by them'.format(nod[:3])
+			except socket.error as err:		pass#print Fore.RED 	+'[outputLoop]: socket.error: while connected to {}, error: "{}"'.format(nod[:3],err)
 			except ValueError as err:		pass#print Fore.MAGENTA 	+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
 			else:							pass#print Fore.GREEN 	+'[outputLoop]: Sent and recieved a message from: {}'.format(nod[:3])
 			finally:						out_socket.close()
@@ -362,9 +357,7 @@ while True:
    		
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
-#we will get here somehow, probably user input:
-print "Main thread ended, terminating program."
+#we will get here somehow, probably user input from debugLoop:
+pass#print "Main thread ended, terminating program."
 backup.close()
 #sys.exit(0)
-
-#BUG: Apperantly, alot of messages are recieved cut. We probably want to raise exceptions and check what's going on.

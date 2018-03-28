@@ -184,9 +184,9 @@ def inputLoop():
 				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
 			else:
 				cmd,nodes,blocks = parseMsg(in_msg)
-			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
-				updateByNodes(nodes)
-			#updateByBlocks(blocks)
+			if cmd!=1: raise ValueError("cmd=1 in input function!")
+			updateByNodes(nodes)
+			updateByBlocks(blocks)
 			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
 			sock.shutdown(socket.SHUT_RD)
 			global_sends+=1

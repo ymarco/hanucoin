@@ -186,7 +186,6 @@ def inputLoop():
 				cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd!=1: raise ValueError("cmd=1 in input function!")
 			updateByNodes(nodes)
-			updateByBlocks(blocks)
 			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
 			sock.shutdown(socket.SHUT_RD)
 			global_sends+=1

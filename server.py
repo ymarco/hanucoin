@@ -103,8 +103,6 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 
 
 def parseMsg(msg):
-	if msg == "": raise ValueError("[parseMsg]: msg is empty")
-	#else:
 	msg = cutstr(msg)
 	nodes = {}
 	blocks =  []
@@ -363,3 +361,7 @@ while True:
 print "Main thread ended, terminating program."
 backup.close()
 #sys.exit(0)
+
+#TODO LIST:
+
+#1. Make more things into functions (ex. file backup should be a function)

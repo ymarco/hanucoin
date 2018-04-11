@@ -1,8 +1,14 @@
-from urllib2 import urlopen
-from colorama import Fore,Back,Style,init as initColorama
-import threading, socket, hashspeed2, time, struct, random, sys, atexit
+class dictobj(object):
+	def __init__(self,diction):
+		self.__dict__=diction
 
-initColorama(autoreset=True)
+from urllib2 import urlopen
+try:
+	from colorama import Fore,Back,Style,init as initColorama
+	initColorama(autoreset=True)
+except ImportError:
+	Fore=dictobj({"RED":"","BLUE":"","CYAN":"","GREEN":"","YELLOW":"","MAGENTA":""})
+import threading, socket, hashspeed2, time, struct, random, sys, atexit
 
 
 #Exit event for terminating program (call exit() or exit_event.set()):
@@ -19,7 +25,7 @@ SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
 localhost = '127.0.0.1'
 currentTime = int(time.time())
 TEAM_NAME="Lead"
-TAL_IP="34.244.16.40"
+TAL_IP="132.66.31.68"
 mining_slices = "1/1"
 TAL_PORT=8080
 TIME_BETWEEN_SENDS = 5*60 #5 min

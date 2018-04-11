@@ -13,7 +13,7 @@ exit = exit_event.set
 
 #Default values:
 SELF_WALLET = hashspeed2.WalletCode(["Lead"])
-NOONE_WALLET = hashspeed2.WalletCode(["no_body"])
+NOONE_WALLET = hashspeed2.WalletCode(["Bob"])
 SELF_PORT = 8089
 SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
 localhost = '127.0.0.1'
@@ -108,6 +108,7 @@ def parseMsg(msg):
 	msg = cutstr(msg)
 	nodes = {}
 	blocks =  []
+	cmd = None
 	try:
 		cmd = struct.unpack(">I",msg.cut(4))[0]
 		if msg.cut(4) != START_NODES: raise ValueError("Wrong start_nodes")
@@ -188,7 +189,7 @@ if backupMSG:
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-socket.setdefaulttimeout(10) #All sockets except listen_socket need timeout. may be too short
+socket.setdefaulttimeout(5) #All sockets except listen_socket need timeout. may be too short
 #listen_socket will run on its own inputLoop and as so doesnt need timeout
 out_messages_input=[]
 
@@ -218,8 +219,7 @@ def inputLoop():
 		except socket.error as err:		print Fore.RED 		+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
 		except ValueError as err:		print Fore.MAGENTA 	+'[inputLoop]: got an invalid data msg from {}: {}'.format(strAddress(addr),err)
  		else:							print Fore.GREEN 	+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
-		finally:
-			sock.close()
+		finally:						sock.close()
 
 
 def miningLoop():
@@ -236,13 +236,12 @@ def miningLoop():
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i*(1<<16)
 				new_block= hashspeed2.MineCoinAttempts(wallet, blocksList[-1],start_num,1<<16) 
-				if blocks_got_updated or new_block!=None: break #start all over again, its a new block
+				if blocks_got_updated or new_block!=None: break #start all over again, we have a new block
 
 			if blocks_got_updated == True: print Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block"
 			elif new_block != None: 
 				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
-				print new_block, len(new_block), type(new_block)
-				print hashspeed2.IsValidBlock(blocksList[-1],new_block)
+				print new_block, '\a'
 				blocksList.append(new_block)
 				blocks_got_updated = True
 			else: print Fore.RED + "[miningLoop]:no succes after %d*2^16 tries ;(" % (MINING_STOPPOINT-MINING_STARTPOINT) #the for loop finished without breaking :(
@@ -284,20 +283,22 @@ miningThread.start()
 def CommMain(): #Send and recieve packets from Tal
 	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 	out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
-	out_msg = createMsg(1,[SELF_NODE],[])
-	out_socket.sendall(out_msg)
-	print "sent %d bytes to tal" % len(out_msg)
-	in_msg = ""
-	while True:
-		data = out_socket.recv(1<<10)
-		if not data: break
-		in_msg += data
-	out_socket.close()
-	cmd,nodes,blocks = parseMsg(in_msg)
-	updateByNodes(nodes)
-	updateByBlocks(blocks)
-	print activeNodes.viewkeys()
-
+	out_msg = createMsg(1,[SELF_NODE],blocksList)
+	try:
+		out_socket.sendall(out_msg)
+		print "sent %d bytes to tal" % len(out_msg)
+		in_msg = ""
+		while True:
+			data = out_socket.recv(1<<10)
+			if not data: break
+			in_msg += data
+		out_socket.close()
+		cmd,nodes,blocks = parseMsg(in_msg)
+		updateByNodes(nodes)
+		updateByBlocks(blocks)
+		print activeNodes.viewkeys()
+	except Exception as err:
+		print "[CommMain]: Error:",err
 
 CommMain()
 
@@ -344,7 +345,7 @@ while True:
 					in_msg += data
 				print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				cmd, nodes,blocks = parseMsg(in_msg)
+				cmd, nodes, blocks = parseMsg(in_msg)
 				if cmd != 2: raise ValueError('cmd accepted isnt 2!')
 				updateByNodes(nodes)
 				blocks_got_updated = updateByBlocks(blocks)

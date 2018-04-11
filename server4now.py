@@ -168,13 +168,9 @@ listen_socket.bind((BIND_RANGE, SELF_PORT)) #BIND_RANGE='' by default
 global_sends=0
 socket.setdefaulttimeout(120) #All sockets except listen_socket need timeout. may be too short
 out_messages_input=[]
-def inputLoop():
-	global out_messages_input,global_sends
-	listen_socket.listen(1)
-	while True:
-		sock, addr = listen_socket.accept()  # synchronous, blocking
-		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
-		init_conn_time = currentTime
+
+def handle_connected_soc(sock,addr):
+	init_conn_time = currentTime
 		try:
 			in_msg=""
 			while True:
@@ -187,7 +183,7 @@ def inputLoop():
 				cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd!=1: raise ValueError("cmd=1 in input function!")
 			updateByNodes(nodes)
-			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
+			print Fore.GREEN+"[inputLoop]: finished recieving, now sending"
 			sock.shutdown(socket.SHUT_RD)
 			global_sends+=1
 			out_message=createMsg(2,[],[])
@@ -206,7 +202,18 @@ def inputLoop():
  		else:							print Fore.GREEN+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:
 			sock.close()
-			print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
+
+def inputMatherloop():
+	global out_messages_input,global_sends
+	listen_socket.listen(1)
+	while True:
+		sock, addr = listen_socket.accept()  # synchronous, blocking
+		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
+		
+		handleSocThread=threading.Thread(target = handle_connected_soc(sock,addr), name="handleSoc")
+		handleSocThread.daemon=True
+		handleSocThread.start()
+		print Fore.CYAN + 'activeNodes: ', activeNodes.keys()
 #>*****DEBUG*******
 def addNode(ip,port,name,ts):
 	global activeNodes

@@ -80,6 +80,8 @@ else: SELF_NODE = []
 
 class CutError(IndexError):
 	pass
+	#Will be used later
+	
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string = string
@@ -95,7 +97,7 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 									
 	def cut(self,bytes):
 		if bytes > len(self.string):
-			raise CutError("String too short for cutting by " + str(bytes) + " bytes.")
+			raise ValueError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece = self.string[:bytes]
 		self.string = self.string[bytes:]
@@ -125,9 +127,11 @@ def parseMsg(msg):
 		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
-	except CutError as err:
-		print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
-		blocks = [] #we dont want damaged blocks
+	#except CutError as err:
+	#	print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
+	#	blocks = [] #we dont want damaged blocks
+	except ValueError as err:
+		print "[parseMsg]: ValueError while parsing:{}".format(err)
 	return cmd, nodes, blocks
 
 
@@ -197,9 +201,9 @@ def inputLoop():
 		try:
 			in_msg = ""
 			while True:
-				data = sock.recv(1<<10)	
+				data = sock.recv(1<<10) #KiloByte	
 				if not data: break
-				in_msg += data #MegaByte	
+				in_msg += data 	
 			cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
 			sock.shutdown(socket.SHUT_RD) #Finished recieving, now sending.

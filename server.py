@@ -61,6 +61,14 @@ def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
 	#takes (ip,port) and returns "ip: port"
 
+def backupRewrite(msg):
+	global backup
+	backup.seek(0) #go to the start of the file
+	backup.write(msg) #write in the new backup
+	backup.truncate() #delete anything left from the previous backup
+	backup.flush() #save info.
+	print Fore.CYAN + "- File backup is done"
+
 class node(object):
 	def __init__(self,host,port,name,ts):
 		self.host = host
@@ -122,12 +130,12 @@ def parseMsg(msg):
 
 		if msg.cut(4) != START_BLOCKS: 
 			raise ValueError("Wrong start_blocks")
-		block_count=struct.unpack(">I",msg.cut(4))[0]
+		block_count = struct.unpack(">I",msg.cut(4))[0]
 		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	except CutError as err:
-		print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
+		print Fore.RED + "[parseMsg]: Message too short, cut error:",err
 		blocks = [] #we dont want damaged blocks
 	return cmd, nodes, blocks
 
@@ -186,7 +194,7 @@ listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
 socket.setdefaulttimeout(5) #All sockets except listen_socket need timeout. may be too short
-#listen_socket will run on its own inputLoop and as so doesnt need timeout
+#listen_socket will run on its own inputLoop thread and as so doesnt need timeout
 out_messages_input=[]
 
 def inputLoop():
@@ -194,16 +202,16 @@ def inputLoop():
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
+		print Fore.GREEN + "[inputLoop]: got a connection from: " + strAddress(addr)
 		try:
 			in_msg = ""
 			while True:
-				data = sock.recv(1<<10)	
+				data = sock.recv(1<<10) #MegaByte
 				if not data: break
-				in_msg += data #MegaByte	
+				in_msg += data
 			cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
-			sock.shutdown(socket.SHUT_RD) #Finished recieving, now sending.
+			sock.shutdown(socket.SHUT_RD) #Finished receiving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
 			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
 			bytes_sent = 0
@@ -229,6 +237,7 @@ def miningLoop():
 				wallet = SELF_WALLET
 				print Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress' 
 
+
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i*(1<<16)
 				new_block= hashspeed2.MineCoinAttempts(wallet, blocksList[-1],start_num,1<<16) 
@@ -241,11 +250,10 @@ def miningLoop():
 				blocksList.append(new_block)
 				blocks_got_updated = True
 			else: print Fore.RED + "[miningLoop]:no succes after %d*2^16 tries ;(" % (MINING_STOPPOINT-MINING_STARTPOINT) #the for loop finished without breaking :(
-				
+			time.sleep(2)	
 		else:
 			print Fore.YELLOW + "[miningLoop]: blocksList is empty"
 			time.sleep(3) #wait, maybe blocksList will get updated.
-		time.sleep(0.1)
 
 
 #>*****DEBUG*******
@@ -293,8 +301,7 @@ def CommMain(): #Send and recieve packets from Tal
 		updateByNodes(nodes)
 		updateByBlocks(blocks)
 		print activeNodes.viewkeys()
-	except Exception as err:
-		print "[CommMain]: Error:",err
+	except Exception as err: print "[CommMain]: Error:",err
 
 CommMain()
 
@@ -302,11 +309,7 @@ CommMain()
 while True:
 	currentTime = int(time.time())
 	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 minutes: 
-		backup.seek(0) #go to the start of the file
-		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
-		backup.truncate() #delete anything left from the previous backup
-		backup.flush() #save info.
-		print Fore.CYAN + "- File backup is done"
+		backupRewrite(createMsg(1, activeNodes.viewvalues(), []))
 		periodicalBuffer = currentTime #Reset 5 min timer
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
@@ -347,7 +350,7 @@ while True:
 				blocks_got_updated = updateByBlocks(blocks)
 
 			except socket.timeout as err:	print Fore.MAGENTA 	+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
-			except socket.error as err:		print Fore.RED 	+'[outputLoop]: socket.error: while connected to {}, error: "{}"'.format(nod[:3],err)
+			except socket.error as err:		print Fore.RED 		+'[outputLoop]: socket.error: while connected to {}, error: "{}"'.format(nod[:3],err)
 			except ValueError as err:		print Fore.MAGENTA 	+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
 			else:							print Fore.GREEN 	+'[outputLoop]: Sent and recieved a message from: {}'.format(nod[:3])
 			finally:						out_socket.close()
@@ -363,4 +366,4 @@ backup.close()
 
 #TODO LIST:
 
-#1. Make more things into functions (ex. file backup should be a function)
+#1. Make more things into functions (ex. file backup should be a function)#did backupRewite func ~Marco

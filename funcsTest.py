@@ -48,7 +48,7 @@ START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to th
 DO_BACKUP = BACKUP_FILE_NAME not in ("","nobackup","noBackup","NoBackup","NOBACKUP","none","None")
 if DO_BACKUP: backup = open(BACKUP_FILE_NAME,"r+b")
 activeNodes={} #saved as: (ip, port):node(host,port,name,ts) 
-blocksList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
+blockList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
 
 
 
@@ -157,11 +157,11 @@ def updateByNodes(nodes_dict):
 			
 
 def updateByBlocks(block_list_in):
-	#returns True if updated blocksList, else - False
-	global blocksList
+	#returns True if updated blockList, else - False
+	global blockList
 	#check if (list is longer than ours) and (the lists are connected)
-	if (len(blocksList) < len(block_list_in)) and (hashspeed2.IsValidBlock(block_list_in[-2],block_list_in[-1])==0):#and hashspeed2.IsValidBlock(blocksList[-1], block_list_in[len(blocksList)])==0:
-		blocksList = block_list_in
+	if (len(blockList) < len(block_list_in)) and (hashspeed2.IsValidBlock(block_list_in[-2],block_list_in[-1])==0):#and hashspeed2.IsValidBlock(blockList[-1], block_list_in[len(blockList)])==0:
+		blockList = block_list_in
 		return True
 	return False
 
@@ -190,7 +190,7 @@ def inputLoop():
 			#if cmd != 1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
 			updateByNodes(nodes)
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
+			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blockList)
 			print "[inputLoop]: sent " + str(sock.send(out_message))+ " bytes."
 			out_messages_input.append(out_message)
 			#sock.shutdown(2)
@@ -205,26 +205,26 @@ def inputLoop():
 
 
 def miningLoop():
-	global blocksList, blocks_got_updated
+	global blockList, blocks_got_updated
 	while True:
-		if blocksList: #blocksList aint empty
+		if blockList: #blockList aint empty
 			print Fore.CYAN + "[miningLoop]: Mining in progress"
 			for i in xrange(1<<16): #tries 2^16 attemps every cycle, 2^16 possible cycles. (2^16 attemps)*(2^16 possible cycles) = 2^32 total possible attemps, as needed.
 				start_num = i*(1<<16)
-				new_block= hashspeed2.MineCoinAttempts(SELF_WALLET, blocksList[-1],start_num,1<<16) 
+				new_block= hashspeed2.MineCoinAttempts(SELF_WALLET, blockList[-1],start_num,1<<16) 
 				if blocks_got_updated or new_block!=None: break #start all over again, its a new blocks
 
 			if blocks_got_updated == True: print Fore.YELLOW + "[miningLoop]: someone else succeeded mining, trying again on the new block"
 			elif new_block != None: 
 				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
-				blocksList += new_block
+				blockList += new_block
 				break
 				blocks_got_updated = True
 			else: print Fore.RED + "[miningLoop]: WTF! no succes after 2^32 tries... there's a big problem here..." #the for loop finished without breaking ?!
 				
 		else:
-			print Fore.YELLOW + "[miningLoop]: blocksList is empty"
-			time.sleep(20) #wait, maybe blocksList will get updated.
+			print Fore.YELLOW + "[miningLoop]: blockList is empty"
+			time.sleep(20) #wait, maybe blockList will get updated.
 		time.sleep(0.1)
 
 
@@ -234,7 +234,7 @@ def addNode(ip,port,name,ts):
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
 
 def debugLoop(): #4th (!) thread for printing wanted variables.
-	global sendBuffer,periodicalBuffer,activeNodes,blocksList,currentTime
+	global sendBuffer,periodicalBuffer,activeNodes,blockList,currentTime
 	while True:
 		try:
 			inpt = raw_input(">")
@@ -252,13 +252,13 @@ updateByNodes(BACKUP_NODES)
 updateByBlocks(BACKUP_BLOCKS)
 
 #block_bin without *
-print hashspeed.IsValidBlock(blocksList[-2],blocksList[-1])
+print hashspeed.IsValidBlock(blockList[-2],blockList[-1])
 print "mining:"
-new_block = hashspeed.MineCoin(SELF_WALLET, blocksList[-1])
+new_block = hashspeed.MineCoin(SELF_WALLET, blockList[-1])
 print new_block
 print type(new_block)
-print type(blocksList[-1])
+print type(blockList[-1])
 print len(new_block)
-print len(blocksList[-1])
-print hashspeed.IsValidBlock(blocksList[-1],new_block)
+print len(blockList[-1])
+print hashspeed.IsValidBlock(blockList[-1],new_block)
 time.sleep(10)			

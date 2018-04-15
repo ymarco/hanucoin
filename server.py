@@ -1,8 +1,14 @@
-from urllib2 import urlopen
-from colorama import Fore,Back,Style,init as initColorama
-import threading, socket, hashspeed2, time, struct, random, sys, atexit
+class dictobj(object):
+	def __init__(self,diction):
+		self.__dict__=diction
 
-initColorama(autoreset=True)
+from urllib2 import urlopen
+try:
+	from colorama import Fore,Back,Style,init as initColorama
+	initColorama(autoreset=True)
+except ImportError:
+	Fore=dictobj({"RED":"","BLUE":"","CYAN":"","GREEN":"","YELLOW":"","MAGENTA":""})
+import threading, socket, hashspeed2, time, struct, random, sys, atexit
 
 
 #Exit event for terminating program (call exit() or exit_event.set()):
@@ -19,7 +25,7 @@ SELF_IP = urlopen('http://ip.42.pl/raw').read() #Get public ip
 localhost = '127.0.0.1'
 currentTime = int(time.time())
 TEAM_NAME="Lead"
-TAL_IP="34.244.16.40"
+TAL_IP="132.66.31.68"
 mining_slices = "1/1"
 TAL_PORT=8080
 TIME_BETWEEN_SENDS = 5*60 #5 min
@@ -53,7 +59,7 @@ START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparin
 START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
 backup = open("backup.bin","r+b")
 activeNodes={} #saved as: {(ip, port): node(host,port,name,ts)...} 
-blocksList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
+blockList = [] #saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
 
 
 
@@ -88,6 +94,8 @@ else: SELF_NODE = []
 
 class CutError(IndexError):
 	pass
+	#Will be used later
+	
 class cutstr(object): #String with a self.cut(bytes) method which works like file.read(bytes).
 	def __init__(self,string):
 		self.string = string
@@ -103,7 +111,7 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 									
 	def cut(self,bytes):
 		if bytes > len(self.string):
-			raise CutError("String too short for cutting by " + str(bytes) + " bytes.")
+			raise ValueError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece = self.string[:bytes]
 		self.string = self.string[bytes:]
@@ -134,9 +142,17 @@ def parseMsg(msg):
 		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
+<<<<<<< HEAD
 	except CutError as err:
 		print Fore.RED + "[parseMsg]: Message too short, cut error:",err
 		blocks = [] #we dont want damaged blocks
+=======
+	#except CutError as err:
+	#	print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
+	#	blocks = [] #we dont want damaged blocks
+	except ValueError as err:
+		print "[parseMsg]: ValueError while parsing:{}".format(err)
+>>>>>>> bb1556b068ffa049b1a09aac3f35b1924171b8f8
 	return cmd, nodes, blocks
 
 
@@ -157,7 +173,7 @@ def createMsg(cmd,nodes,blocks):
 	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
 
 
-def updateByNodes(nodes_dict):
+block_countNodes(nodes_dict):
 	global activeNodes, nodes_got_updated
 	for addr,node in nodes_dict.iteritems(): 
 		if ((currentTime - 30*60) < node.ts <= currentTime) and addr!=(SELF_IP,SELF_PORT) : #If it's not a node from the future or from more than 30 minutes ago, and doesnt have our ip
@@ -170,14 +186,14 @@ def updateByNodes(nodes_dict):
 			
 
 def updateByBlocks(blocks):
-	#returns True if updated blocksList, else - False
-	global blocksList
-	if len(blocksList) <= 2:
-		blocksList =blocks
+	#returns True if updated blockList, else - False
+	global blockList
+	if len(blockList) <= 2:
+		blockList =blocks
 		return True
 	#else: check if ((list is longer than ours) and (last block is valid)) and (the lists are connected)
-	if (len(blocksList) < len(blocks)): # and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blocksList[-1],blocks[len(blocksList)])==0:
-		blocksList = blocks
+	if (len(blockList) < len(blocks)): # and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blockList[-1],blocks[len(blockList)])==0:
+		blockList = blocks
 		return True
 	return False
 
@@ -206,14 +222,14 @@ def inputLoop():
 		try:
 			in_msg = ""
 			while True:
-				data = sock.recv(1<<10) #MegaByte
+				data = sock.recv(1<<10) #KiloByte	
 				if not data: break
-				in_msg += data
+				in_msg += data 	
 			cmd,nodes,blocks = parseMsg(in_msg)
 			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
 			sock.shutdown(socket.SHUT_RD) #Finished receiving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
-			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blocksList)
+			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blockList)
 			bytes_sent = 0
 			while bytes_sent<len(out_message):
 				bytes_sent += sock.send(out_message[bytes_sent:])
@@ -227,10 +243,10 @@ def inputLoop():
 
 
 def miningLoop():
-	global blocksList, blocks_got_updated
+	global blockList, blocks_got_updated
 	while True:
-		if blocksList: #blocksList aint empty
-			if hashspeed2.unpack_block_to_tuple(blocksList[-1])[1] == SELF_WALLET:
+		if blockList: #blockList aint empty
+			if hashspeed2.unpack_block_to_tuple(blockList[-1])[1] == SELF_WALLET:
 				wallet = NOONE_WALLET
 				print Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress' 
 			else: 
@@ -240,20 +256,21 @@ def miningLoop():
 
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i*(1<<16)
-				new_block= hashspeed2.MineCoinAttempts(wallet, blocksList[-1],start_num,1<<16) 
+				new_block= hashspeed2.MineCoinAttempts(wallet, blockList[-1],start_num,1<<16) 
 				if blocks_got_updated or new_block!=None: break #start all over again, we have a new block
 
 			if blocks_got_updated == True: print Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block"
 			elif new_block != None: 
 				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!)"
 				print new_block, '\a'
-				blocksList.append(new_block)
+				blockList.append(new_block)
 				blocks_got_updated = True
 			else: print Fore.RED + "[miningLoop]:no succes after %d*2^16 tries ;(" % (MINING_STOPPOINT-MINING_STARTPOINT) #the for loop finished without breaking :(
 			time.sleep(2)	
 		else:
-			print Fore.YELLOW + "[miningLoop]: blocksList is empty"
-			time.sleep(3) #wait, maybe blocksList will get updated.
+			print Fore.YELLOW + "[miningLoop]: blockList is empty"
+			time.sleep(3) #wait, maybe blockList will get updated.
+		time.sleep(0.1)
 
 
 #>*****DEBUG*******
@@ -262,7 +279,7 @@ def addNode(ip,port,name,ts):
 	activeNodes.update({(ip,port):node(ip,port,name,ts)})
 
 def debugLoop(): #4th (!) thread for mostly printing wanted variables.
-	global sendBuffer,periodicalBuffer,activeNodes,blocksList,currentTime, nodes_got_updated
+	global sendBuffer,periodicalBuffer,activeNodes,blockList,currentTime, nodes_got_updated
 	while True:
 		try:
 			inpt = raw_input(">")
@@ -287,7 +304,7 @@ miningThread.start()
 def CommMain(): #Send and recieve packets from Tal
 	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 	out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
-	out_msg = createMsg(1,[SELF_NODE],blocksList)
+	out_msg = createMsg(1,[SELF_NODE],blockList)
 	try:
 		out_socket.sendall(out_msg)
 		print "sent %d bytes to tal" % len(out_msg)
@@ -332,7 +349,7 @@ while True:
 			print Fore.CYAN + "[outputLoop]: trying to send {} a message:".format(nod[:3])
 			try:
 				out_socket.connect(nod[:2])
-				out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blocksList)
+				out_msg = createMsg(1,activeNodes.values()+[SELF_NODE],blockList)
 				bytes_sent=0
 				while bytes_sent<len(out_msg):
 					bytes_sent += out_socket.send(out_msg[bytes_sent:])

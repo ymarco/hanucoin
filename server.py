@@ -142,17 +142,9 @@ def parseMsg(msg):
 		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
 			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
-<<<<<<< HEAD
 	except CutError as err:
 		print Fore.RED + "[parseMsg]: Message too short, cut error:",err
 		blocks = [] #we dont want damaged blocks
-=======
-	#except CutError as err:
-	#	print Fore.RED+ "[parseMsg]: Message too short, cut error:",err
-	#	blocks = [] #we dont want damaged blocks
-	except ValueError as err:
-		print "[parseMsg]: ValueError while parsing:{}".format(err)
->>>>>>> bb1556b068ffa049b1a09aac3f35b1924171b8f8
 	return cmd, nodes, blocks
 
 

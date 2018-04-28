@@ -49,9 +49,10 @@ if DO_BACKUP:
 activeNodes={}
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
-def recvAll(sock):
+
+def recvAll(sock,buffersize_per_instance):
 	while True:
-		dat=sock.recv(1<<10)	
+		dat=sock.recv(buffersize_per_instance)	
 		if not dat: break
 		msg += dat #MegaByte
 	return msg
@@ -103,7 +104,13 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 		self.string=self.string[bytes:]
 		return piece
 
-
+def writeBackup(msg):
+	global backup
+	backup.seek(0) #go to the start of the file
+	backup.write(msg) #write in the new backup
+	backup.truncate() #delete anything left from the previous backup
+	backup.flush() #save info.
+	print Fore.CYAN + "- File backup is done"
 
 def parseMsg(msg):
 	msg=cutstr(msg)
@@ -170,21 +177,15 @@ if DO_BACKUP:
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind((BIND_RANGE, SELF_PORT)) #BIND_RANGE='' by default
 global_sends=0
-socket.setdefaulttimeout(120) #All sockets except listen_socket need timeout. may be too short
-out_messages_input=[]
+socket.setdefaulttimeout(10) #All sockets except listen_socket need timeout. may be too short
+
 def inputLoop():
-	global out_messages_input,global_sends
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
 		try:
-			in_msg=""
-			while True:
-				dat=sock.recv(1<<10)	
-				if not dat: break
-				in_msg += dat #MegaByte
-			if in_msg == "":
+			in_msg=recvAll(sock,1<<10)
 				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
 			else:
 				cmd,nodes,blocks = parseMsg(in_msg)
@@ -194,7 +195,6 @@ def inputLoop():
 			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
 			sock.shutdown(socket.SHUT_RD)
 
-			global_sends+=1
 			out_message=createMsg(2,[],[]) #Sends an empty message (cmd=2, node_count=0, block_count=0)
 			#sock.sendall(out_message)
 			byts=1
@@ -204,7 +204,6 @@ def inputLoop():
 				print Fore.YELLOW+str(byts)
 				part += byts
 			sock.shutdown(2)
-			out_messages_input.append(out_message)
 		except socket.timeout as err:
 			print Fore.MAGENTA+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:
@@ -240,35 +239,29 @@ inputThread=threading.Thread(target = inputLoop, name="input")
 inputThread.daemon=True
 inputThread.start() 
 
-#getting nodes from tal:
-out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
-out_msg = createMsg(1,[SELF_NODE],[])
-out_socket.sendall(out_msg)
-in_msg=""
-while True:
-	dat = out_socket.recv(1<<10)
-	if not dat: break
-	in_msg += dat
-out_socket.close()
-cmd,nodes,blocks = parseMsg(in_msg)
-updateByNodes(nodes)
-print activeNodes.keys()
+def CommMain(): #Comminucate with Tal's server
+	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+	out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
+	out_msg = createMsg(1,[SELF_NODE],[])
+	out_socket.sendall(out_msg)
+	in_msg=recvAll(out_socket)
+	out_socket.close()
+	cmd,nodes,blocks = parseMsg(in_msg)
+	updateByNodes(nodes)
 
 
 while True:
 	
-	#DoSomeCoinMining() - we'll do that later
 	currentTime = int(time.time())
-	if DO_BACKUP and currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
-		print Fore.CYAN + "file backup has started"
-		backup.seek(0) #go to the start of the file
-		backup.write(createMsg(1,activeNodes.values(),[])) #write in the new backup
-		backup.truncate() #delete anything left from the previous backup
-		backup.flush() #save info.
+	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 min: 
 		periodicalBuffer = currentTime #Reset 5 min timer
+		
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
+		if DO_BACKUP:
+			writeBackup(createMsg(1,activeNodes.values(),[]))
+			print Fore.GREEN + "Saved backup."
+		
 	if nodes_updated or currentTime - 5*60 >= sendBuffer: 		#Every 5 min, or when activeNodes gets an update:
 		sendBuffer = currentTime #resetting the timer
 		nodes_updated = False #Turn off the flag for triggering this very If nest.
@@ -290,18 +283,10 @@ while True:
 				out_msg=createMsg(1,activeNodes.values()+[SELF_NODE],[])
 				byts=1
 				part=0
-				while part<len(out_msg):
-					byts = out_socket.send(out_msg[part:part+1024])
-					print Fore.YELLOW+str(byts)
-					part += byts
-				out_socket.shutdown(socket.SHUT_WR)
-				#out_socket.shutdown(1) Finished sending, now listening. |# disabled due to a potential two end shutdown in some OSs.
+				out_socket.sendall(out_msg)
+				out_socket.shutdown(socket.SHUT_WR) #Finished sending, now recieving.
 				print Fore.GREEN+"[outLoop]: Finished sending, now recieving."
-				in_msg=""
-				while True:
-					dat=out_socket.recv(1<<10)
-					if not dat: break
-					in_msg += dat
+				in_msg=recvAll(out_socket)
 				print Fore.GREEN + "[outputLoop]: reply received from: " +strAddress(addr)
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
 				if in_msg == "":
@@ -315,7 +300,7 @@ while True:
 			except socket.timeout as err:	print Fore.MAGENTA+'[outputLoop]: socket.timeout: while sending to {}, error: "{}"'.format(strAddress(addr), err)
 			except socket.error as err:		print Fore.RED+'[outputLoop]: socket.error while sending to {}, error: "{}"'.format(strAddress(addr), err)
 			except ValueError as err:		print Fore.MAGENTA+'[outputLoop] got an invalid data msg from {}: {}'.format(strAddress(addr),err)
-			else:							print Fore.GREEN+"[outputLoop]: Sent and recieved message from: " + strAddress(addr)
+			else:							print Fore.GREEN+"[outputLoop]: Successfully sent and recieved message from: " + strAddress(addr)
 			finally:						out_socket.close()
 
 
@@ -332,4 +317,5 @@ print "main thread ended, terminating program."
 if DO_BACKUP: backup.close()
 #sys.exit(0)
 
+#IMPROVEMENT: We should get rid of cutstr and use normal string indexing
 #BUG: Apperantly, alot of messages are recieved cut. We probably want to raise exceptions and check what's going on.

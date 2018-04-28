@@ -164,6 +164,17 @@ def createMsg(cmd,nodes,blocks):
 		
 	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
 
+def updateByNodes(nodes_dict):
+	global activeNodes, nodes_updated
+	for addr,node in nodes_dict.iteritems(): 
+		if ((currentTime - 30*60) < node.ts <= currentTime) and (LOCALHOST,SELF_PORT)!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
+			print "updated activeNodes:",activeNodes.keys()
+			if addr not in activeNodes.keys(): #Its a new node, lets add it
+				nodes_updated = True
+				activeNodes[addr] = node
+			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
+					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
+
 
 def block_countNodes(nodes_dict):
 	global activeNodes, nodes_got_updated

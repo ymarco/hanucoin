@@ -41,14 +41,20 @@ periodicalBuffer -= (4*60+0.4*60)
 sendBuffer -= (4*60+0.6*60)
 #************************
 nodes_updated = False #flag for when a new node is added.
-START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime we
-START_BLOCKS = struct.pack(">I", 0xdeaddead) #{will compare the raw string to the packed number.
+START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime,
+START_BLOCKS = struct.pack(">I", 0xdeaddead) #{we will compare the raw string to the packed number.
 DO_BACKUP = BACKUP_FILE_NAME not in ("","nobackup","noBackup","NoBackup","NOBACKUP","none","None")
 if DO_BACKUP:
 	backup=open(BACKUP_FILE_NAME,"r+b")
 activeNodes={}
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
+def recvAll(sock):
+	while True:
+		dat=sock.recv(1<<10)	
+		if not dat: break
+		msg += dat #MegaByte
+	return msg
 
 def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
@@ -189,8 +195,9 @@ def inputLoop():
 			#updateByBlocks(blocks)
 			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
 			sock.shutdown(socket.SHUT_RD)
+
 			global_sends+=1
-			out_message=createMsg(2,[],[])
+			out_message=createMsg(2,[],[]) #Sends an empty message (cmd=2, node_count=0, block_count=0)
 			#sock.sendall(out_message)
 			byts=1
 			part=0

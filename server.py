@@ -165,7 +165,7 @@ def createMsg(cmd,nodes,blocks):
 	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
 
 
-block_countNodes(nodes_dict):
+def block_countNodes(nodes_dict):
 	global activeNodes, nodes_got_updated
 	for addr,node in nodes_dict.iteritems(): 
 		if ((currentTime - 30*60) < node.ts <= currentTime) and addr!=(SELF_IP,SELF_PORT) : #If it's not a node from the future or from more than 30 minutes ago, and doesnt have our ip

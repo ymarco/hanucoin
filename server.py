@@ -67,12 +67,6 @@ def strAddress(addressTuple):
 	return addressTuple[0]+": "+str(addressTuple[1])
 	#takes (ip,port) and returns "ip: port"
 
-def writeBackup(backupFH,msg):
-	backupFH.seek(0) #go to the start of the file
-	backupFH.write(msg) #write in the new backup
-	backupFH.truncate() #delete anything left from the previous backup
-	backupFH.flush() #save info.
-	print Fore.CYAN + "- File backup is done"
 
 class node(object):
 	def __init__(self,host,port,name,ts):
@@ -116,6 +110,13 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 		self.string = self.string[bytes:]
 		return piece
 
+def writeBackup(msg):
+	global backup
+	backup.seek(0) #go to the start of the file
+	backup.write(msg) #write in the new backup
+	backup.truncate() #delete anything left from the previous backup
+	backup.flush() #save info.
+	print Fore.CYAN + "- File backup is done"
 
 def parseMsg(msg):
 	msg = cutstr(msg)
@@ -330,7 +331,7 @@ while True:
 	if currentTime - 5*60 >= periodicalBuffer: #backup every 5 minutes:
 		periodicalBuffer = currentTime #Reset 5 min timer 
 		
-		writeBackup(backup,createMsg(1, activeNodes.viewvalues(), []))
+		writeBackup(createMsg(1, activeNodes.viewvalues(), []))
 		SELF_NODE.ts = currentTime #Update our own node's timestamp.
 
 		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())

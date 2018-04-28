@@ -159,9 +159,7 @@ def updateByNodes(nodes_dict):
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
-			else: print "updateByNodes: didn't accept a new node of " + strAddress(addr) + " because it's timestamp was lower than ours"
-		else:
-			print "updateByNodes: didn't accept a node " + strAddress(addr) + " due to an invalid timestamp/address"
+					
 if DO_BACKUP:
 	backupMSG=backup.read()
 	if backupMSG:

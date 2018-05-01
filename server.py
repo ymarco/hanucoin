@@ -50,7 +50,8 @@ activeNodes={}
 #teamname = hashspeed.somethingWallet(lead)
 #local ip = ''
 
-def recvAll(sock,buffersize_per_instance):
+def recvAll(sock,buffersize_per_instance=1024):
+	msg=""
 	while True:
 		dat=sock.recv(buffersize_per_instance)	
 		if not dat: break
@@ -186,7 +187,7 @@ def inputLoop():
 		print Fore.GREEN+"[inputLoop]: got a connection from: " + strAddress(addr)
 		try:
 			in_msg=recvAll(sock,1<<10)
-				print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
+			if in_msg=="": print Fore.MAGENTA+'[inputLoop]: got an empty message from: '+  strAddress(addr)
 			else:
 				cmd,nodes,blocks = parseMsg(in_msg)
 			#if cmd!=1: raise ValueError("cmd=1 in input function!") | will be handled later with try,except
@@ -248,7 +249,7 @@ def CommMain(): #Comminucate with Tal's server
 	out_socket.close()
 	cmd,nodes,blocks = parseMsg(in_msg)
 	updateByNodes(nodes)
-
+CommMain()
 
 while True:
 	

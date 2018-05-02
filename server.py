@@ -41,8 +41,8 @@ periodicalBuffer -= (4*60+0.4*60)
 sendBuffer -= (4*60+0.6*60)
 #************************
 nodes_updated = False #flag for when a new node is added.
-START_NODES = struct.pack(">I", 0xbeefbeef)  #{Instead of unpacking and comparing to the number everytime,
-START_BLOCKS = struct.pack(">I", 0xdeaddead) #{we will compare the raw string to the packed number.
+START_NODES = struct.pack(">I", 0xBeefBeef)  #{Instead of unpacking and comparing to the number everytime,
+START_BLOCKS = struct.pack(">I", 0xDeadDead) #{we will compare the raw string to the packed number.
 DO_BACKUP = BACKUP_FILE_NAME not in ("","nobackup","noBackup","NoBackup","NOBACKUP","none","None")
 if DO_BACKUP:
 	backup=open(BACKUP_FILE_NAME,"r+b")

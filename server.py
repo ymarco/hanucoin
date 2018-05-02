@@ -118,34 +118,29 @@ def writeBackup(msg):
 	backup.flush() #save info.
 	print Fore.CYAN + "- File backup is done"
 
-def parseMsg(msg):
+def parseMsg(msg, desired_cmd):
 	msg = cutstr(msg)
 	nodes = {}
 	blocks =  []
-	cmd = None
-	try:
-		cmd = struct.unpack(">I",msg.cut(4))[0]
-		if msg.cut(4) != START_NODES: raise ValueError("Wrong start_nodes")
-		node_count 	= struct.unpack(">I",msg.cut(4))[0]
-		for _ in xrange(node_count):
-			name_len=struct.unpack("B",msg.cut(1))[0]
-			name 	=msg.cut(name_len)
-			host_len=struct.unpack("B",msg.cut(1))[0]
-			host 	=msg.cut(host_len)
-			port 	=struct.unpack(">H",msg.cut(2))[0]
-			ts 		=struct.unpack(">I",msg.cut(4))[0]
-			nodes[(host,port)]=node(host,port,name,ts)
+	if desired_cmd != struct.unpack(">I",msg.cut(4))[0]: raise ValueError("wrong cmd: accepted cmd isnt %d " (% desired_cmd))
+	if msg.cut(4) != START_NODES: raise ValueError("Wrong start_nodes")
+	node_count 	= struct.unpack(">I",msg.cut(4))[0]
+	for _ in xrange(node_count):
+		name_len=struct.unpack("B",msg.cut(1))[0]
+		name 	=msg.cut(name_len)
+		host_len=struct.unpack("B",msg.cut(1))[0]
+		host 	=msg.cut(host_len)
+		port 	=struct.unpack(">H",msg.cut(2))[0]
+		ts 		=struct.unpack(">I",msg.cut(4))[0]
+		nodes[(host,port)]=node(host,port,name,ts)
 
 		if msg.cut(4) != START_BLOCKS: 
 			raise ValueError("Wrong start_blocks")
 		block_count = struct.unpack(">I",msg.cut(4))[0]
 		print "    [parseMsg]: block_count:", block_count
 		for _ in xrange(block_count):
-			blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
-	except CutError as err:
-		print Fore.RED + "[parseMsg]: Message too short, cut error:",err
-		blocks = [] #we dont want damaged blocks
-	return cmd, nodes, blocks
+		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
+	return nodes, blocks
 
 
 def createMsg(cmd,nodes,blocks):
@@ -204,7 +199,7 @@ def updateByBlocks(blocks):
 
 backupMSG = backup.read()
 if backupMSG:
-	_, BACKUP_NODES, __ = parseMsg(backupMSG) #get nodes from backup file
+	BACKUP_NODES, __ = parseMsg(backupMSG) #get nodes from backup file
 	updateByNodes(BACKUP_NODES)
 	#we dont want to updateByBlocks cause these blocks are probably outdated
 
@@ -224,12 +219,12 @@ def inputLoop():
 		print Fore.GREEN + "[inputLoop]: got a connection from: " + strAddress(addr)
 		try:
 			in_msg = ""
+			#watchdog
 			while True:
 				data = sock.recv(1<<10) #KiloByte	
-				if not data: break
-				in_msg += data 	
-			cmd,nodes,blocks = parseMsg(in_msg)
-			if cmd != 1: raise ValueError('cmd accepted isnt 1!')
+				try: nodes,blocks = parseMsg(data, 1)
+				except CutError as err: continue
+				except Exception: break
 			sock.shutdown(socket.SHUT_RD) #Finished receiving, now sending.
 			blocks_got_updated = updateByBlocks(blocks)
 			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blockList)
@@ -240,7 +235,6 @@ def inputLoop():
 			sock.shutdown(2)
 		except socket.timeout as err:	print Fore.MAGENTA	+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
 		except socket.error as err:		print Fore.RED 		+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
-		except ValueError as err:		print Fore.MAGENTA 	+'[inputLoop]: got an invalid data msg from {}: {}'.format(strAddress(addr),err)
  		else:							print Fore.GREEN 	+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
 		finally:						sock.close()
 
@@ -259,6 +253,7 @@ def miningLoop():
 
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i*(1<<16)
+				#asdasd
 				new_block= hashspeed2.MineCoinAttempts(wallet, blockList[-1],start_num,1<<16) 
 				if blocks_got_updated or new_block!=None: break #start all over again, we have a new block
 
@@ -317,7 +312,7 @@ def CommMain(): #Send and recieve packets from Tal
 			if not data: break
 			in_msg += data
 		out_socket.close()
-		cmd,nodes,blocks = parseMsg(in_msg)
+		nodes,blocks = parseMsg(in_msg, 2)
 		updateByNodes(nodes)
 		updateByBlocks(blocks)
 		print activeNodes.viewkeys()
@@ -359,20 +354,18 @@ while True:
 					bytes_sent += out_socket.send(out_msg[bytes_sent:])
 				out_socket.shutdown(socket.SHUT_WR) #Finished sending, now listening.
 				in_msg = ""
+				#watchdog
 				while True:
-					data = out_socket.recv(1<<10)
-					if not data: break
-					in_msg += data
-				print Fore.GREEN + "[outputLoop]: reply received from: ", nod[:3]
+					data = sock.recv(1<<10) #KiloByte	
+					try: nodes,blocks = parseMsg(data, 1)
+					except CutError as err: continue
+					except Exception: break
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				cmd, nodes, blocks = parseMsg(in_msg)
-				if cmd != 2: raise ValueError('cmd accepted isnt 2!')
 				updateByNodes(nodes)
 				blocks_got_updated = updateByBlocks(blocks)
 
 			except socket.timeout as err:	print Fore.MAGENTA 	+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
 			except socket.error as err:		print Fore.RED 		+'[outputLoop]: socket.error: while connected to {}, error: "{}"'.format(nod[:3],err)
-			except ValueError as err:		print Fore.MAGENTA 	+'[outputLoop] got an invalid data msg from {}: {}'.format(nod[:3],err)
 			else:							print Fore.GREEN 	+'[outputLoop]: Sent and recieved a message from: {}'.format(nod[:3])
 			finally:						out_socket.close()
 

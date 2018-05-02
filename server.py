@@ -196,10 +196,10 @@ def inputLoop():
 			print Fore.GREEN+"[inLoop]: finished recieving, now sending"
 			sock.shutdown(socket.SHUT_RD)
 
-			out_message=createMsg(2,[],[]) #Sends an empty message (cmd=2, node_count=0, block_count=0)
+			out_message=createMsg(2,[SELF_NODE],[]) #Sends an empty message (cmd=2, node_count=0, block_count=0)
 			#sock.sendall(out_message)
-			byts=1
-			part=0
+			byts = 1
+			part = 0
 			while part<len(out_message):
 				byts = sock.send(out_message[part:part+1024])
 				print Fore.YELLOW+str(byts)

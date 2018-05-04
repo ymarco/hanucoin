@@ -1,6 +1,6 @@
 *.sublime-project
 *.sublime-workspace
-test*
+*test*
 *.pyc
 cd ..
 *ign.*

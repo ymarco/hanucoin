@@ -1,3 +1,5 @@
+import threading, socket, hashspeed2, time, struct, random, sys, atexit
+
 class dictobj(object):
 	def __init__(self, diction):
 		self.__dict__ = diction
@@ -11,7 +13,7 @@ try:
 	initColorama(autoreset=True)
 except ImportError:
 	Fore = dictobj({"RED": "", "BLUE": "", "CYAN": "", "GREEN": "", "YELLOW": "", "MAGENTA": ""})
-import threading, socket, hashspeed2, time, struct, random, sys, atexit
+
 
 # Exit event for terminating program (call exit() or exit_event.set()):
 exit_event = threading.Event()
@@ -63,8 +65,8 @@ activeNodes = {}  # saved as: {(ip, port): node(host,port,name,ts)...}
 blockList = []  # saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
 
 
-def strAddress(addressTuple):
-	return addressTuple[0] + ": " + str(addressTuple[1])
+def strAddress(addr_tup):
+	return addr_tup[0] + ": " + str(addr_tup[1])
 
 
 # takes (ip,port) and returns "ip: port"
@@ -99,21 +101,15 @@ class Cutstr(object):  # String with a self.cut(bytes) method which works like f
 	def __init__(self, string):
 		self.string = string
 
-	# def __repr__(self):
-	#	return "cutstr object:"+repr(self.string)
-
-	# def __eq__(self,other):
-	#	return other == self.string #works with pure strings and other cutstr objects.
-
 	def __len__(self):
 		return len(self.string)
 
-	def cut(self, bytes):
-		if bytes > len(self.string):
-			raise CutError("String too short for cutting by " + str(bytes) + " bytes.")
+	def cut(self, bytes_to_cut):
+		if bytes_to_cut > len(self.string):
+			raise CutError("String too short for cutting by " + str(bytes_to_cut) + " bytes.")
 
-		piece = self.string[:bytes]
-		self.string = self.string[bytes:]
+		piece = self.string[:bytes_to_cut]
+		self.string = self.string[bytes_to_cut:]
 		return piece
 
 
@@ -218,10 +214,10 @@ def handleInSoc(sock, addr):
 		print Fore.GREEN + "[inputLoop]: sent %d bytes back to %s" % (bytes_sent, strAddress(addr))
 		sock.shutdown(2)
 
-	except socket.timeout as err:	print Fore.MAGENTA + '[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
-	except socket.error as err:		print Fore.RED + '[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err)  # Select will be added later
-	else:							print Fore.GREEN + '[inputLoop]: reply sent successful to: ' + strAddress(addr)
-	finally:						sock.close()
+	except socket.timeout as err:    print Fore.MAGENTA + '[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
+	except socket.error as err:        print Fore.RED + '[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err)  # Select will be added later
+	else:                            print Fore.GREEN + '[inputLoop]: reply sent successful to: ' + strAddress(addr)
+	finally:                        sock.close()
 
 
 backupMSG = backup.read()
@@ -263,7 +259,6 @@ def miningLoop():
 
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i * (1 << 16)
-				# asdasd
 				new_block = hashspeed2.MineCoinAttempts(wallet, blockList[-1], start_num, 1 << 16)
 				if blocks_got_updated or new_block is not None: break  # start all over again, we have a new block
 
@@ -319,10 +314,10 @@ def CommMain():  # Send and receive packets from Tal
 		print "sent %d bytes to TeamDebug" % len(out_msg)
 		receiveLoop(out_socket, 2)
 		print activeNodes.viewkeys()
-	except socket.timeout as err:	print Fore.MAGENTA + '[CommMain]: socket.timeout while connected to tal, error: ', err
-	except socket.error as err:		print Fore.RED + '[CommMain]: socket.error while connected to tal, error: ', err
-	else:							print Fore.GREEN + '[CommMain]: sent and received msg successfully from Tal'
-	finally:						out_socket.close()
+	except socket.timeout as err:    print Fore.MAGENTA + '[CommMain]: socket.timeout while connected to tal, error: ', err
+	except socket.error as err:        print Fore.RED + '[CommMain]: socket.error while connected to tal, error: ', err
+	else:                            print Fore.GREEN + '[CommMain]: sent and received msg successfully from Tal'
+	finally:                        out_socket.close()
 
 
 CommMain()

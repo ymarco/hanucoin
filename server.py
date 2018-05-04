@@ -104,7 +104,7 @@ class cutstr(object): #String with a self.cut(bytes) method which works like fil
 									
 	def cut(self,bytes):
 		if bytes > len(self.string):
-			raise ValueError("String too short for cutting by " + str(bytes) + " bytes.")
+			raise CutError("String too short for cutting by " + str(bytes) + " bytes.")
 		
 		piece = self.string[:bytes]
 		self.string = self.string[bytes:]
@@ -122,8 +122,8 @@ def parseMsg(msg, desired_cmd):
 	msg = cutstr(msg)
 	nodes = {}
 	blocks =  []
-	if desired_cmd != struct.unpack(">I",msg.cut(4))[0]: raise ValueError("wrong cmd: accepted cmd isnt %d " (% desired_cmd))
-	if msg.cut(4) != START_NODES: raise ValueError("Wrong start_nodes")
+	if desired_cmd != struct.unpack(">I",msg.cut(4))[0] : raise ValueError("[parseMsg]: wrong cmd accepted")
+	if msg.cut(4) != START_NODES: raise ValueError("[parseMsg]: Wrong start_nodes")
 	node_count 	= struct.unpack(">I",msg.cut(4))[0]
 	for _ in xrange(node_count):
 		name_len=struct.unpack("B",msg.cut(1))[0]
@@ -134,11 +134,10 @@ def parseMsg(msg, desired_cmd):
 		ts 		=struct.unpack(">I",msg.cut(4))[0]
 		nodes[(host,port)]=node(host,port,name,ts)
 
-		if msg.cut(4) != START_BLOCKS: 
-			raise ValueError("Wrong start_blocks")
-		block_count = struct.unpack(">I",msg.cut(4))[0]
-		print "    [parseMsg]: block_count:", block_count
-		for _ in xrange(block_count):
+	if msg.cut(4) != START_BLOCKS: raise ValueError("[parseMsg]: Wrong start_blocks")
+	block_count = struct.unpack(">I",msg.cut(4))[0]
+	print "    [parseMsg]: block_count:", block_count
+	for _ in xrange(block_count):
 		blocks.append(msg.cut(32)) #NEEDS CHANGES AT THE LATER STEP
 	return nodes, blocks
 
@@ -164,8 +163,8 @@ def updateByNodes(nodes_dict):
 	for addr,node in nodes_dict.iteritems(): 
 		if ((currentTime - 30*60) < node.ts <= currentTime) and (LOCALHOST,SELF_PORT)!=addr!=(SELF_IP,SELF_PORT) : #If it's not a message from the future or from more than 30 minutes ago	
 			print "updated activeNodes:",activeNodes.keys()
-			if addr not in activeNodes.keys(): #Its a new node, lets add it
-				nodes_updated = True
+			if addr not in activeNodes.keys(): 
+				nodes_updated = True #Its a new node, lets add it
 				activeNodes[addr] = node
 			elif (activeNodes[addr].ts < node.ts): #elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts #the node was seen later than what we have in activeNodes, so we update the ts
@@ -199,7 +198,7 @@ def updateByBlocks(blocks):
 
 backupMSG = backup.read()
 if backupMSG:
-	BACKUP_NODES, __ = parseMsg(backupMSG) #get nodes from backup file
+	BACKUP_NODES, _ = parseMsg(backupMSG,1) #get nodes from backup file
 	updateByNodes(BACKUP_NODES)
 	#we dont want to updateByBlocks cause these blocks are probably outdated
 
@@ -226,16 +225,19 @@ def inputLoop():
 				except CutError as err: continue
 				except Exception: break
 			sock.shutdown(socket.SHUT_RD) #Finished receiving, now sending.
-			blocks_got_updated = updateByBlocks(blocks)
 			out_message = createMsg(2,activeNodes.values()+[SELF_NODE], blockList)
 			bytes_sent = 0
 			while bytes_sent<len(out_message):
 				bytes_sent += sock.send(out_message[bytes_sent:])
 			print Fore.GREEN + "[inputLoop]: sent %d bytes back to %s" % (bytes_sent,strAddress(addr))
 			sock.shutdown(2)
-		except socket.timeout as err:	print Fore.MAGENTA	+'[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
-		except socket.error as err:		print Fore.RED 		+'[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
- 		else:							print Fore.GREEN 	+"[inputLoop]: reply sent successfuly to: " + strAddress(addr)
+
+			if nodes and blocks:
+				updateByNodes(nodes)
+				blocks_got_updated = updateByBlocks(blocks)
+		except socket.timeout as err:	print Fore.MAGENTA	+ '[inputLoop]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err)
+		except socket.error as err:		print Fore.RED 		+ '[inputLoop]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err) #Select will be added later
+ 		else:							print Fore.GREEN 	+ '[inputLoop]: reply sent successfuly to: ' + strAddress(addr)
 		finally:						sock.close()
 
 
@@ -263,7 +265,7 @@ def miningLoop():
 				print new_block, '\a'
 				blockList.append(new_block)
 				blocks_got_updated = True
-			else: print Fore.RED + "[miningLoop]:no succes after %d*2^16 tries ;(" % (MINING_STOPPOINT-MINING_STARTPOINT) #the for loop finished without breaking :(
+			else: print Fore.RED + "[miningLoop]:no succes after %d*2^16 tries :,( " % (MINING_STOPPOINT-MINING_STARTPOINT) #the for loop finished without breaking :(
 			time.sleep(2)	
 		else:
 			print Fore.YELLOW + "[miningLoop]: blockList is empty"
@@ -302,21 +304,23 @@ miningThread.start()
 def CommMain(): #Send and recieve packets from Tal
 	out_socket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 	out_socket.connect((TAL_IP, TAL_PORT)) #Tal's main server - TeamDebug
-	out_msg = createMsg(1,[SELF_NODE],blockList)
+	out_msg = createMsg(1, [SELF_NODE], [])
 	try:
 		out_socket.sendall(out_msg)
 		print "sent %d bytes to tal" % len(out_msg)
 		in_msg = ""
+		#watchdog
 		while True:
-			data = out_socket.recv(1<<10)
-			if not data: break
-			in_msg += data
-		out_socket.close()
-		nodes,blocks = parseMsg(in_msg, 2)
+			data = out_socket.recv(1<<10) #KiloByte	
+			try: nodes,blocks = parseMsg(data, 2)
+			except CutError as err: continue
 		updateByNodes(nodes)
 		updateByBlocks(blocks)
 		print activeNodes.viewkeys()
-	except Exception as err: print "[CommMain]: Error:",err
+	except socket.timeout as err:	print Fore.MAGENTA	+ '[CommMain]: socket.timeout while connected to tal, error: ', err
+	except socket.error as err:		print Fore.RED 		+ '[CommMain]: socket.error while connected to tal, error: ', err
+	else:							print Fore.GREEN 	+ '[CommMain]: sent and recieved msg successfuly from Tal'
+	finally:						out_socket.close()
 
 CommMain()
 
@@ -361,12 +365,13 @@ while True:
 					except CutError as err: continue
 					except Exception: break
 				out_socket.shutdown(2) #Shutdown both ends, optional but favorable.
-				updateByNodes(nodes)
-				blocks_got_updated = updateByBlocks(blocks)
+				if nodes and blocks:
+					updateByNodes(nodes)
+					blocks_got_updated = updateByBlocks(blocks)
 
-			except socket.timeout as err:	print Fore.MAGENTA 	+'[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
-			except socket.error as err:		print Fore.RED 		+'[outputLoop]: socket.error: while connected to {}, error: "{}"'.format(nod[:3],err)
-			else:							print Fore.GREEN 	+'[outputLoop]: Sent and recieved a message from: {}'.format(nod[:3])
+			except socket.timeout as err:	print Fore.MAGENTA 	+ '[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
+			except socket.error as err:		print Fore.RED 		+ '[outputLoop]: socket.error: while connected to {}, error: "{}"'.format(nod[:3], err)
+			else:							print Fore.GREEN 	+ '[outputLoop]: Sent and recieved a message from: {}'.format(nod[:3])
 			finally:						out_socket.close()
 
 

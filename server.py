@@ -259,7 +259,8 @@ def acceptLoop():
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		address_info = strAddress(addr) + " ("+("/".join([node.team for key,node in activeNodes.iteritems() if key[0]==addr[0]]) or "unknown team")+")" #evaluates to "ip:port (team1/team2/team3)". usually the same ip only has 1 team.
+		address_info = strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
+		#  ^ evaluates to "ip:port (team1/team2/team3)". usually the same ip only has 1 team.
 		# safeprint(Style.BRIGHT+Fore.MAGENTA,[node.team for key,node in activeNodes.iteritems() if key[0]==addr[0]])
 		safeprint(Fore.GREEN + "[acceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=strAddress(addr) + " inputThread")
@@ -332,7 +333,7 @@ def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' a
 	safeprint(Fore.YELLOW + "[CommOut]: trying to communicate with {}:".format(address_info))
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.connect((TAL_IP, TAL_PORT))  # Tal's main server - TeamDebug
-	out_msg = createMsg(1, [SELF_NODE], [])
+	out_msg = createMsg(1, activeNodes.values() + [SELF_NODE], blockList)
 
 	try:
 		sock.sendall(out_msg)
@@ -350,7 +351,7 @@ def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' a
 
 
 def CommMain():  # Communicate with the main server (Tal's)
-	CommOut((TAL_IP, TAL_PORT), team_info = "CommMain: TeamDebug")
+	CommOut((TAL_IP, TAL_PORT), team_info="CommMain: TeamDebug")
 
 
 CommMain()  # Communicate with tal for the first time
@@ -380,7 +381,7 @@ while True:
 		safeprint("deleting event has started")
 
 		for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
-			CommOut(node[:2], team_info = node.team)
+			CommOut(node[:2], team_info=node.team)
 
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 

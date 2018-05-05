@@ -238,7 +238,7 @@ def handleInSock(sock, address_info):
 		sock.shutdown(2)
 
 	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(address_info, err))
-	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(address_info), err)  # Select will be added later
+	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(address_info, err))  # Select will be added later
 	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %d bytes sent successfully back to: %s' % (len(out_message), address_info))
 	finally: sock.close()
 
@@ -292,7 +292,7 @@ def miningLoop():
 				blockList.append(new_block)
 				blocks_got_updated.set()
 			elif blocks_got_updated.isSet: safeprint(Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block")
-			else: safeprint(Fore.RED + "[miningLoop]: no success after %d*2^16 tries :,( " % (MINING_STOPPOINT - MINING_STARTPOINT))  # the for loop finished without breaking :(
+			else: safeprint(Fore.RED + "[miningLoop]: no success after %d*2^16 tries D: " % (MINING_STOPPOINT - MINING_STARTPOINT))  # the for loop finished without breaking :(
 			time.sleep(2)
 		else:
 			safeprint(Fore.YELLOW + "[miningLoop]: blockList is empty")

@@ -247,7 +247,7 @@ def handleInSock(sock, addr):
 
 backupMSG = backup.read()
 if backupMSG:
-	print('Loading backup')
+	safeprint('Loading backup')
 	BACKUP_NODES, _ = parseMsg(backupMSG, 1)  # get nodes from backup file
 	updateByNodes(BACKUP_NODES)  # we don't want to updateByBlocks cause these blocks are probably outdated
 
@@ -387,7 +387,7 @@ while True:
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 # we will get here somehow, probably user input from debugLoop:
-print("Main thread ended, terminating program.")
+safeprint("Main thread ended, terminating program.")
 backup.close()  # sys.exit(0)
 
 # TODO LIST:

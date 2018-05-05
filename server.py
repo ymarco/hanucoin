@@ -216,10 +216,10 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 			nodes, blocks = parseMsg(data, desired_msg_cmd)
 		except CutError: continue
 		except ValueError as err:
-			print('[recvMsg]: invalid data received, error: ', err)
+			safeprint('[recvMsg]: invalid data received, error: ', err)
 			return {}, []
 		else:
-			print('[recvMsg]: message received successfully')
+			safeprint('[recvMsg]: message received successfully')
 			return nodes, blocks
 
 
@@ -244,7 +244,7 @@ def handleInSock(sock, addr):
 
 backupMSG = backup.read()
 if backupMSG:
-	print('Loading backup')
+	safeprint('Loading backup')
 	BACKUP_NODES, _ = parseMsg(backupMSG, 1)  # get nodes from backup file
 	updateByNodes(BACKUP_NODES)  # we don't want to updateByBlocks cause these blocks are probably outdated
 
@@ -383,7 +383,7 @@ while True:
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 # we will get here somehow, probably user input from debugLoop:
-print("Main thread ended, terminating program.")
+safeprint("Main thread ended, terminating program.")
 backup.close()  # sys.exit(0)
 
 # TODO LIST:

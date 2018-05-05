@@ -192,8 +192,8 @@ def updateByNodes(nodes_dict):
 					activeNodes[addr] = node
 				elif activeNodes[addr].ts < node.ts:  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
-				#  else: print Fore.MAGENTA + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"
-			#  else: print Fore.RED + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts, currentTime - node.ts, datestr(node.ts)
+				# else: print Fore.MAGENTA + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"
+			# else: print Fore.RED + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts, currentTime - node.ts, datestr(node.ts)
 
 
 def updateByBlocks(blocks):
@@ -329,8 +329,8 @@ miningThread.daemon = True
 miningThread.start()
 
 
-def CommOut(addr, team=""):  # Send and receive response (optional 'team' argument for prints)
-	team_str = (team and " (" + team + ")")  # Will add '(<team>)' to the prints if team string is present.
+def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' argument for prints)
+	team_str = (team_info and " (" + team_info + ")")  # Will add '(<team>)' to the prints if team string is present.
 	address_info = strAddress(addr) + team_str
 	safeprint(Fore.YELLOW + "[CommOut]: trying to communicate with {}:".format(address_info))
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -353,7 +353,7 @@ def CommOut(addr, team=""):  # Send and receive response (optional 'team' argume
 
 
 def CommMain():  # Communicate with the main server (Tal's)
-	CommOut((TAL_IP, TAL_PORT), "CommMain: TeamDebug")
+	CommOut((TAL_IP, TAL_PORT), team_info = "CommMain: TeamDebug")
 
 
 CommMain()  # Communicate with tal for the first time
@@ -364,7 +364,7 @@ while True:
 
 		writeBackup(createMsg(1, activeNodes.viewvalues(), []))
 		SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
-		safeprint(Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys()))
+		safeprint(Fore.CYAN + "activeNodes: ",activeNodes.keys())
 		CommMain()  # Ensure that we are still up with the main server (Tal)
 
 		# DELETE 30 MIN OLD NODES:
@@ -383,7 +383,7 @@ while True:
 		safeprint("deleting event has started")
 
 		for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
-			CommOut(node[:2], node.team)
+			CommOut(node[:2], team_info = node.team)
 
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 

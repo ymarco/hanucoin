@@ -27,7 +27,6 @@ NOONE_WALLET = hashspeed2.WalletCode(["Bob"])
 SELF_IP = urlopen('http://ip.42.pl/raw').read()  # Get public ip
 SELF_PORT = 8089
 LOCALHOST = '127.0.0.1'
-currentTime = int(time.time())
 TEAM_NAME = "Lead"
 TAL_IP = "34.244.16.40"
 mining_slices = "1/1"
@@ -99,7 +98,7 @@ class Node(object):
 		return (self.host, self.port, self.name, self.ts)[index]
 
 
-if send_self_node: SELF_NODE = Node(SELF_IP, SELF_PORT, TEAM_NAME, currentTime)
+if send_self_node: SELF_NODE = Node(SELF_IP, SELF_PORT, TEAM_NAME, int(time.time()))
 else: SELF_NODE = []
 
 
@@ -185,7 +184,7 @@ def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if ((currentTime - 30 * 60) < node.ts <= currentTime) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
+			if ((int(time.time()) - 60 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
 				if addr not in activeNodes.keys():  # If it's a new node, add it
 					nodes_updated = True
 					activeNodes[addr] = node
@@ -210,8 +209,8 @@ def updateByBlocks(blocks):
 
 def recvMsg(sock, desired_msg_cmd, timeout=15):
 	data = ""
-	watchdog = currentTime
-	while currentTime - watchdog < timeout:  # aborts if it lasts more than timeout
+	watchdog = int(time.time())
+	while int(time.time()) - watchdog < timeout:  # aborts if it lasts more than timeout
 		data += sock.recv(1 << 10)  # KiloByte
 		try:
 			nodes, blocks = parseMsg(data, desired_msg_cmd)
@@ -304,7 +303,7 @@ def addNode(ip, port, name, ts):
 
 
 def debugLoop():  # 4th (!) thread for mostly printing wanted variables.
-	global sendBuffer, periodicalBuffer, activeNodes, blockList, currentTime, nodes_got_updated
+	global sendBuffer, periodicalBuffer, activeNodes, blockList, nodes_got_updated
 	while True:
 		try:
 			inpt = raw_input(">")
@@ -347,24 +346,23 @@ def CommMain():  # Send and receive packets from Tal
 CommMain()
 
 while True:
-	currentTime = int(time.time())
-	if currentTime - 5 * 60 >= periodicalBuffer:  # backup every 5 minutes:
-		periodicalBuffer = currentTime  # Reset 5 min timer
+	if int(time.time()) - 5 * 60 >= periodicalBuffer:  # backup every 5 minutes:
+		periodicalBuffer = int(time.time())  # Reset 5 min timer
 
 		writeBackup(createMsg(1, activeNodes.viewvalues(), []))
-		SELF_NODE.ts = currentTime  # Update our own node's timestamp.
+		SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
 
 		print Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys())
 
 		CommMain()  # Ensure that we are still up with the main server (Tal)
 
-	if nodes_got_updated or blocks_got_updated or currentTime - TIME_BETWEEN_SENDS >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
-		sendBuffer = currentTime  # resetting the timer
+	if nodes_got_updated or blocks_got_updated or int(time.time()) - TIME_BETWEEN_SENDS >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
+		sendBuffer = int(time.time())  # resetting the timer
 		nodes_got_updated = blocks_got_updated = False  # Turn off the flag for triggering this very If nest.
 		print "deleting event has started"
 		# DELETE 30 MIN OLD NODES:
 		for node in activeNodes.values():  # values rather than itervalues is important because we are deleting keys from the dictionary.
-			if currentTime - node.ts > 30 * 60:  # the node wasnt seen in 30 min:
+			if int(time.time()) - node.ts > 30 * 60:  # the node wasnt seen in 30 min:
 				print Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3])
 				del activeNodes[node[:2]]  # nod[:2] returns (host,port) which happens to also be nod's key in activeNodes
 

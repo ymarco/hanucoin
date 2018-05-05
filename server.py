@@ -1,4 +1,5 @@
-from __future__ import print_function,division
+from __future__ import print_function, division
+from urllib2 import urlopen
 import threading, socket, hashspeed2, time, struct, random, sys, atexit
 
 
@@ -6,8 +7,6 @@ class dictobj(object):
 	def __init__(self, diction):
 		self.__dict__ = diction
 
-
-from urllib2 import urlopen
 
 try:
 	from colorama import Fore, Back, Style, init as initColorama
@@ -42,12 +41,12 @@ try:
 	# {say we want to run 3 servers, we'll run the 1st in '1/3' slice, 2nd in '2/3' slice, 3rd in '3/3' slice
 	# {so they try numbers for mining from different xranges.
 
-	TAL_IP,TAL_PORT = sys.argv[3].split(":")
+	TAL_IP, TAL_PORT = sys.argv[3].split(":")
 	send_self_node = bool(sys.argv[4])
-	
+
 except IndexError: pass
 
-mining_slice_1, mining_slice_2 = map(int,mining_slices.split('/'))
+mining_slice_1, mining_slice_2 = map(int, mining_slices.split('/'))
 
 MINING_STARTPOINT = ((mining_slice_1 - 1) * (1 << 16)) // mining_slice_2
 MINING_STOPPOINT = (mining_slice_1 * (1 << 16)) // mining_slice_2
@@ -75,9 +74,11 @@ def datestr(secs):
 	dateobj = time.gmtime(secs)
 	return str(dateobj.tm_mday) + "/" + str(dateobj.tm_mon) + "/" + str(dateobj.tm_year) + " - " + str(dateobj.tm_hour) + ":" + str(dateobj.tm_min) + ":" + str(dateobj.tm_sec)
 
+
 def safeprint(*args):
 	with print_lock:
 		print(*args)
+
 
 # takes (ip,port) and returns "ip: port"
 
@@ -98,6 +99,7 @@ class Node(object):
 	def __getitem__(self, index):
 		return (self.host, self.port, self.team, self.ts)[index]
 
+
 if send_self_node: SELF_NODE = Node(SELF_IP, SELF_PORT, TEAM_NAME, int(time.time()))
 else: SELF_NODE = []
 
@@ -116,6 +118,7 @@ class Cutstr(object):  # String with a self.cut(bytes) method which works like f
 	>>> CutObj.string
 	"cdefg"
 	"""
+
 	def __init__(self, string):
 		self.string = string
 
@@ -184,14 +187,14 @@ def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if ((int(time.time()) - 30 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
+			if ((int(time.time()) - 30 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (
+					SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
 				if addr not in activeNodes.keys():  # If it's a new node, add it
 					nodes_updated = True
 					activeNodes[addr] = node
-				elif (activeNodes[addr].ts < node.ts):  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
-					activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
-				else: safeprint(Fore.MAGENTA + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS")
-			else: safeprint(Fore.RED + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", int(time.time()) - 30 * 60 - node.ts, int(time.time()) - node.ts, datestr(node.ts))
+				elif activeNodes[addr].ts < node.ts:  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
+					activeNodes[
+						addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts  #  else: print Fore.MAGENTA + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"  #  else: print Fore.RED + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts, currentTime - node.ts, datestr(node.ts)
 
 
 def updateByBlocks(blocks):
@@ -216,10 +219,10 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 			nodes, blocks = parseMsg(data, desired_msg_cmd)
 		except CutError: continue
 		except ValueError as err:
-			print('[recvMsg]: invalid data received, error: ', err)
+			safeprint('[recvMsg]: invalid data received, error: ', err)
 			return {}, []
 		else:
-			print('[recvMsg]: message received successfully')
+			safeprint('[recvMsg]: message received successfully')
 			return nodes, blocks
 
 
@@ -233,7 +236,7 @@ def handleInSock(sock, addr):
 		bytes_sent = 0
 		sock.sendall(out_message)
 		# while bytes_sent < len(out_message):
-			# bytes_sent += sock.send(out_message[bytes_sent:])
+		# bytes_sent += sock.send(out_message[bytes_sent:])
 		sock.shutdown(2)
 
 	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err))
@@ -326,33 +329,34 @@ miningThread.daemon = True
 miningThread.start()
 
 
-def CommOut(addr,team=""):  # Send and receive response (optional 'team' argument for prints)
-	team_str=(team and " ("+team+")") # Will add '(<team>)' to the prints if team string is present.
-	address_info = strAddress(addr)+team_str
-	safeprint(Fore.YELLOW+"[CommOut]: trying to comminucate with {}:".format(address_info))
+def CommOut(addr, team=""):  # Send and receive response (optional 'team' argument for prints)
+	team_str = (team and " (" + team + ")")  # Will add '(<team>)' to the prints if team string is present.
+	address_info = strAddress(addr) + team_str
+	safeprint(Fore.YELLOW + "[CommOut]: trying to comminucate with {}:".format(address_info))
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.connect((TAL_IP, TAL_PORT))  # Tal's main server - TeamDebug
 	out_msg = createMsg(1, [SELF_NODE], [])
 
 	try:
 		sock.sendall(out_msg)
-		safeprint(Fore.GREEN+"sent {} bytes to {}".format(len(out_msg),address_info))
+		safeprint(Fore.GREEN + "sent {} bytes to {}".format(len(out_msg), address_info))
 		sock.shutdown(socket.SHUT_WR)
 
 		nodes, blocks = recvMsg(sock, desired_msg_cmd=2)
 		updateByNodes(nodes)
 		updateByBlocks(blocks)
-		sock.shutdown(2) # Shutdown both ends, optional but favorable
-	except socket.timeout as err: safeprint(Fore.MAGENTA + '[CommOut]: socket.timeout while connected to {}, error: '.format(address_info))
-	except socket.error as err: safeprint(Fore.RED + '[CommOut]: socket.error while connected to {}, error: '.format(address_info))
+		sock.shutdown(2)  # Shutdown both ends, optional but favorable
+	except socket.timeout as err: safeprint(Fore.MAGENTA + '[CommOut]: socket.timeout while connected to {}, error: {}'.format(address_info, err))
+	except socket.error as err: safeprint(Fore.RED + '[CommOut]: socket.error while connected to {}, error: '.format(address_info), err)
 	else: safeprint(Fore.GREEN + '[CommOut]: sent and received message successfully from {}'.format(address_info))
 	finally: sock.close()
 
-def CommMain(): # Communicate with the main server (Tal's)
-	CommOut((TAL_IP,TAL_PORT),"CommMain: TeamDebug")
+
+def CommMain():  # Communicate with the main server (Tal's)
+	CommOut((TAL_IP, TAL_PORT), "CommMain: TeamDebug")
 
 
-CommMain() # Communicate with tal for the first time
+CommMain()  # Communicate with tal for the first time
 
 while True:
 	if int(time.time()) - 5 * 60 >= periodicalBuffer:  # Backup every 5 minutes:
@@ -365,7 +369,7 @@ while True:
 
 		CommMain()  # Ensure that we are still up with the main server (Tal)
 	elif not activeNodes:
-		safeprint(Fore.MAGENTA+"activeNodes is empty, attempting communication with main server:")
+		safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with main server:")
 		CommMain()
 	if nodes_got_updated or blocks_got_updated or int(time.time()) - TIME_BETWEEN_SENDS >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = int(time.time())  # resetting the timer
@@ -378,7 +382,7 @@ while True:
 				del activeNodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
 
 		for node in random.sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
-			CommOut(node[:2],node.team)
+			CommOut(node[:2], node.team)
 
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
@@ -392,6 +396,3 @@ backup.close()  # sys.exit(0)
 # 2. We should probably rename mining_slice_1 and 2 to something more readable ~Maayan
 
 # BUGS:
-
-# 
-# 

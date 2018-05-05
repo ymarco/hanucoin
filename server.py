@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 from urllib2 import urlopen
-import threading, socket, hashspeed2, time, struct, random, sys, atexit
+from random import sample
+import threading, socket, hashspeed2, time, struct, sys, atexit
 
 
 class dictobj(object):
@@ -231,7 +232,6 @@ def handleInSock(sock, addr):
 		updateByBlocks(blocks)
 		sock.shutdown(socket.SHUT_RD)  # Finished receiving, now sending.
 		out_message = createMsg(2, activeNodes.values() + [SELF_NODE], blockList)
-		bytes_sent = 0
 		sock.sendall(out_message)
 		# while bytes_sent < len(out_message):
 		# bytes_sent += sock.send(out_message[bytes_sent:])
@@ -239,7 +239,7 @@ def handleInSock(sock, addr):
 
 	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err))
 	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err))  # Select will be added later
-	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %d bytes sent successfully back to: %s' % (bytes_sent, strAddress(addr)))
+	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %d bytes sent successfully back to: %s' % (len(out_message), strAddress(addr)))
 	finally: sock.close()
 
 
@@ -362,25 +362,26 @@ while True:
 
 		writeBackup(createMsg(1, activeNodes.viewvalues(), []))
 		SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
-
 		safeprint(Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys()))
-
 		CommMain()  # Ensure that we are still up with the main server (Tal)
+
+		# DELETE 30 MIN OLD NODES:
+		for node in activeNodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
+			if int(time.time()) - node.ts > 30 * 60:  # the node wasn't seen in 30 min:
+				safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
+				del activeNodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
+
 	elif not activeNodes:
-		safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with main server:")
+		safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with TeamDebug:")
 		CommMain()
 	if nodes_got_updated.isSet() or blocks_got_updated.isSet() or int(time.time()) - TIME_BETWEEN_SENDS >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = int(time.time())  # resetting the timer
 		nodes_got_updated.clear()
 		blocks_got_updated.clear()  # Turn off the flag for triggering this very If nest.
 		safeprint("deleting event has started")
-		# DELETE 30 MIN OLD NODES:
-		for node in activeNodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
-			if int(time.time()) - node.ts > 30 * 60:  # the node wasnt seen in 30 min:
-				safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
-				del activeNodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
 
-		for node in random.sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
+
+		for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
 			CommOut(node[:2], node.team)
 
 	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
@@ -391,7 +392,7 @@ backup.close()  # sys.exit(0)
 
 # TODO LIST:
 
-# 1. Make more things into functions (ex. file backup should be a function) | did backupRewite func ~Marco | did CommOut() ~Maayan
-# 2. We should probably rename mining_slice_1 and 2 to something more readable ~Maayan
+# 1. Make more things into functions (ex. file backup should be a function) | did writeBackup func ~Marco | did CommOut() ~Banos
+# 2. We should probably rename mining_slice_1 and 2 to something more readable ~Banos | to what? ~Marco
 
 # BUGS:

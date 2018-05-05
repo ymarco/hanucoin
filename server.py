@@ -65,7 +65,7 @@ time.sleep(0)
 
 
 def strAddress(addr_tup):
-	return addr_tup[0] + ": " + str(addr_tup[1])
+	return addr_tup[0] + ":" + str(addr_tup[1])
 
 
 def datestr(secs):
@@ -224,7 +224,7 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 			return nodes, blocks
 
 
-def handleInSock(sock, addr):
+def handleInSock(sock, address_info):
 	try:
 		nodes, blocks = recvMsg(sock, desired_msg_cmd=1)
 		updateByNodes(nodes)
@@ -237,9 +237,9 @@ def handleInSock(sock, addr):
 		# bytes_sent += sock.send(out_message[bytes_sent:])
 		sock.shutdown(2)
 
-	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(strAddress(addr), err))
-	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(strAddress(addr), err))  # Select will be added later
-	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %d bytes sent successfully back to: %s' % (bytes_sent, strAddress(addr)))
+	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(address_info))
+	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(address_info))  # Select will be added later
+	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %d bytes sent successfully back to: %s' % (len(out_message), address_info))
 	finally: sock.close()
 
 
@@ -253,17 +253,19 @@ if backupMSG:
 listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listen_socket.bind(('', SELF_PORT))
 
-socket.setdefaulttimeout(15)  # All sockets except listen_socket need timeout. may be too short
-# listen_socket will run on its own inputLoop thread and as so doesnt need timeout
+socket.setdefaulttimeout(15)  # All sockets except listen_socket (socket for accepting) need timeout. may be too short
+# (listen_socket accepts sockets on a single thread "acceptLoop")
 out_messages_input = []
 
 
-def inputLoop():
+def acceptLoop():
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		safeprint(Fore.GREEN + "[inputLoop]: got a connection from: " + strAddress(addr))
-		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, addr), name=strAddress(addr) + " inputThread")
+		address_info = strAddress(addr) + " ("+("/".join([node.team for key,node in activeNodes.iteritems() if key[0]==addr[0]]) or "unknown team")+")" #evaluates to "ip:port (team1/team2/team3)". usually the same ip only has 1 team.
+		# safeprint(Style.BRIGHT+Fore.MAGENTA,[node.team for key,node in activeNodes.iteritems() if key[0]==addr[0]])
+		safeprint(Fore.GREEN + "[acceptLoop]: got a connection from: " + address_info)
+		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=strAddress(addr) + " inputThread")
 		handleInSockThread.daemon = True
 		handleInSockThread.start()
 
@@ -318,9 +320,9 @@ debugThread = threading.Thread(target=debugLoop, name="debug")
 debugThread.daemon = True
 debugThread.start()
 
-inputThread = threading.Thread(target=inputLoop, name="input")
-inputThread.daemon = True
-inputThread.start()
+acceptThread = threading.Thread(target=acceptLoop, name="accept")
+acceptThread.daemon = True
+acceptThread.start()
 
 miningThread = threading.Thread(target=miningLoop, name="mining")
 miningThread.daemon = True
@@ -377,7 +379,7 @@ while True:
 		# DELETE 30 MIN OLD NODES:
 		for node in activeNodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
 			if int(time.time()) - node.ts > 30 * 60:  # the node wasnt seen in 30 min:
-				safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
+				safeprint(Style.BRIGHT+Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
 				del activeNodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
 
 		for node in random.sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
@@ -393,5 +395,12 @@ backup.close()  # sys.exit(0)
 
 # 1. Make more things into functions (ex. file backup should be a function) | did backupRewite func ~Marco | did CommOut() ~Maayan
 # 2. We should probably rename mining_slice_1 and 2 to something more readable ~Maayan
+# 3. Simplfy things regarding the exit event and the atexit registered function (add comments and improve variable names or thing of a different code design)
+# 4.
+# 5.
 
 # BUGS:
+
+# 1.
+# 2.
+# 3.

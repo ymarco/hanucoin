@@ -61,13 +61,18 @@ blocks_got_updated = False  # flag for when someone (might be us) succeeds in mi
 START_NODES = struct.pack(">I", 0xbeefbeef)  # {Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead)  # {will compare the raw string to the packed number.
 backup = open("backup.bin", "r+b")
-activeNodes = {}  # saved as: {(ip, port): node(host,port,name,ts)...}
-blockList = []  # saved as binary list of all blocks - [block_bin_0, blocks_bin_1,...]
-
+activeNodes = {}  # formatted as: {(ip, port): node(ip, port, name, ts),...}
+blockList = []  # formatted as a binary list of all blocks - [block_bin_0, block_bin_1,...]
+nodes_lock = threading.Lock()
+blocks_lock = threading.Lock() # locks prevent threads from changing the node and block lists at the same time
+time.sleep(0)
 
 def strAddress(addr_tup):
 	return addr_tup[0] + ": " + str(addr_tup[1])
 
+def datestr(secs):
+	dateobj=time.gmtime(secs)
+	return str(dateobj.tm_mday)+"/"+str(dateobj.tm_mon)+"/"+str(dateobj.tm_year)+" - "+str(dateobj.tm_hour)+":"+str(dateobj.tm_min)+":"+str(dateobj.tm_sec)
 
 # takes (ip,port) and returns "ip: port"
 
@@ -126,7 +131,7 @@ def parseMsg(msg, desired_cmd):
 	msg = Cutstr(msg)
 	nodes = {}
 	blocks = []
-	if desired_cmd != struct.unpack(">I", msg.cut(4))[0]: raise ValueError("[parseMsg]: wrong cmd accepted")
+	if desired_cmd != struct.unpack(">I", msg.cut(4))[0]: raise ValueError("[parseMsg]: Wrong cmd accepted")
 	if msg.cut(4) != START_NODES: raise ValueError("[parseMsg]: Wrong start_nodes")
 	node_count = struct.unpack(">I", msg.cut(4))[0]
 	for _ in xrange(node_count):
@@ -146,17 +151,17 @@ def parseMsg(msg, desired_cmd):
 	return nodes, blocks
 
 
-def createMsg(cmd, nodes, blocks):
+def createMsg(cmd, node_dict, block_list):
 	parsed_cmd = struct.pack(">I", cmd)
-	nodes_count = struct.pack(">I", len(nodes))
+	nodes_count = struct.pack(">I", len(node_dict))
 
 	parsed_nodes = ''
-	for node in nodes:
+	for node in node_dict:
 		parsed_nodes += struct.pack("B", len(node.name)) + node.name + struct.pack("B", len(node.host)) + node.host + struct.pack(">H", node.port) + struct.pack(">I", node.ts)
 
-	block_count = struct.pack(">I", len(blocks))
+	block_count = struct.pack(">I", len(block_list))
 	parsed_blocks = ''
-	for block in blocks:
+	for block in block_list:
 		parsed_blocks += block
 
 	return parsed_cmd + START_NODES + nodes_count + parsed_nodes + START_BLOCKS + block_count + parsed_blocks
@@ -164,48 +169,52 @@ def createMsg(cmd, nodes, blocks):
 
 def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
-	for addr, node in nodes_dict.iteritems():
-		if ((currentTime - 30 * 60) < node.ts <= currentTime) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
-			if addr not in activeNodes.keys():
-				nodes_updated = True  # Its a new node, lets add it
-				activeNodes[addr] = node
-			elif (activeNodes[addr].ts < node.ts):  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
-				activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
-
-
+	with nodes_lock:
+		for addr, node in nodes_dict.iteritems():
+			if ((currentTime - 30 * 60) < node.ts <= currentTime) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
+				if addr not in activeNodes.keys(): #If it's a new node, add it
+					nodes_updated = True
+					activeNodes[addr] = node
+				elif (activeNodes[addr].ts < node.ts):  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
+					activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
+				else: print Fore.MAGENTA+"DIDNT ACCEPT NODE OF "+strAddress(addr)+" DUE TO AN OLDER TIMESTAMP THAN OURS"
+			else:
+				print Fore.RED+"DIDNT ACCEPT NODE OF "+strAddress(addr)+" DUE TO AN INVALID TIMESTAMP/ADDRESS: ",currentTime-30*60-node.ts,currentTime-node.ts,datestr(node.ts)
 def updateByBlocks(blocks):
 	# returns True if updated blockList, else - False
 	global blockList, blocks_got_updated
-	if len(blockList) <= 2:
-		blockList = blocks
-		return True
-	# else: check if ((list is longer than ours) and (last block is valid)) and (the lists are connected)
-	if (len(blockList) < len(blocks)):  # and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blockList[-1],blocks[len(blockList)])==0:
-		blockList = blocks
-		blocks_got_updated = True
+	with blocks_lock:
+		if len(blockList) <= 2:
+			blockList = blocks
+			return True
+		# else: check if ((list is longer than ours) and (last block is valid)) and (the lists are connected)
+		if (len(blockList) < len(blocks)):  # and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blockList[-1],blocks[len(blockList)])==0:
+			blockList = blocks
+			blocks_got_updated = True
 
 
-def receiveLoop(soc, desired_msg_cmd):
+def recvMsg(sock, desired_msg_cmd, timeout=15):
 	data = ""
 	watchdog = currentTime
-	while currentTime - watchdog < 8:  # we don't want the loop running for more than 8 secs
-		data += soc.recv(1 << 10)  # KiloByte
+	while currentTime - watchdog < timeout:  #aborts if it lasts more than timeout
+		data += sock.recv(1<<10)  # KiloByte
 		try:
 			nodes, blocks = parseMsg(data, desired_msg_cmd)
-			updateByNodes(nodes)
-			updateByBlocks(blocks)
-			print '[receiveLoop]: msg received successfully'
-			break
-
 		except CutError: continue
 		except ValueError as err:
-			print '[receiveLoop]: invalid data received, error: {}'.format(err)
+			print '[recvMsg]: invalid data received, error: {}'.format(err)
 			break
+		else:
+			print '[recvMsg]: message received successfully'
+			return nodes, blocks
 
 
-def handleInSoc(sock, addr):
+
+def handleInSock(sock, addr):
 	try:
-		receiveLoop(sock, 1)
+		nodes, blocks = recvMsg(sock,desired_msg_cmd=1)
+		updateByNodes(nodes)
+		updateByBlocks(blocks)
 		sock.shutdown(socket.SHUT_RD)  # Finished receiving, now sending.
 		out_message = createMsg(2, activeNodes.values() + [SELF_NODE], blockList)
 		bytes_sent = 0
@@ -240,9 +249,9 @@ def inputLoop():
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		print Fore.GREEN + "[inputLoop]: got a connection from: " + strAddress(addr)
-		handleInSocThread = threading.Thread(target=handleInSoc, args=(sock, addr))
-		handleInSocThread.daemon = True
-		handleInSocThread.start()
+		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, addr), name=strAddress(addr)+" inputThread")
+		handleInSockThread.daemon = True
+		handleInSockThread.start()
 
 
 def miningLoop():
@@ -263,7 +272,7 @@ def miningLoop():
 				if blocks_got_updated or new_block is not None: break  # start all over again, we have a new block
 
 			if new_block is not None:
-				print Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!) \a"
+				print Style.BRIGHT + Fore.BLUE + "[miningLoop]: Mining attempt succeeded (!) \a"
 				blockList.append(new_block)
 				blocks_got_updated = True
 			elif blocks_got_updated: print Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block"
@@ -305,19 +314,21 @@ miningThread.start()
 
 
 def CommMain():  # Send and receive packets from Tal
-	out_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	out_socket.connect((TAL_IP, TAL_PORT))  # Tal's main server - TeamDebug
+	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock.connect((TAL_IP, TAL_PORT))  # Tal's main server - TeamDebug
 	out_msg = createMsg(1, [SELF_NODE], [])
 
 	try:
-		out_socket.sendall(out_msg)
+		sock.sendall(out_msg)
 		print "sent %d bytes to TeamDebug" % len(out_msg)
-		receiveLoop(out_socket, 2)
+		nodes,blocks=recvMsg(sock,desired_msg_cmd=2)
+		updateByNodes(nodes)
+		updateByBlocks(blocks)
 		print activeNodes.viewkeys()
-	except socket.timeout as err:    print Fore.MAGENTA + '[CommMain]: socket.timeout while connected to tal, error: ', err
-	except socket.error as err:        print Fore.RED + '[CommMain]: socket.error while connected to tal, error: ', err
-	else:                            print Fore.GREEN + '[CommMain]: sent and received msg successfully from Tal'
-	finally:                        out_socket.close()
+	except socket.timeout as err:	print Fore.MAGENTA + '[CommMain]: socket.timeout while connected to tal, error: ', err
+	except socket.error as err:		print Fore.RED + '[CommMain]: socket.error while connected to tal, error: ', err
+	else:							print Fore.GREEN + '[CommMain]: sent and received message successfully from Tal'
+	finally:						sock.close()
 
 
 CommMain()
@@ -355,8 +366,9 @@ while True:
 					bytes_sent += out_socket.send(out_msg[bytes_sent:])
 				out_socket.shutdown(socket.SHUT_WR)  # Finished sending, now listening.
 
-				receiveLoop(out_socket, 2)
-
+				nodes,blocks=recvMsg(out_socket, desired_msg_cmd=2)
+				updateByNodes(nodes)
+				updateByBlocks(nodes)
 				out_socket.shutdown(2)  # Shutdown both ends, optional but favorable.
 
 			except socket.timeout as err:    print Fore.MAGENTA + '[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)
@@ -373,3 +385,8 @@ backup.close()  # sys.exit(0)
 # TODO LIST:
 
 # 1. Make more things into functions (ex. file backup should be a function)#did backupRewite func ~Marco
+
+#BUGS:
+
+# For some reason currentTime and our node's timestamps are a hour more than they're supposed to be (which causes updateByNodes to not accept any nodes)
+# What's weird about this is that people still send back our node with the 1 hour-into-future timestamp

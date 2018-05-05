@@ -32,7 +32,6 @@ TAL_IP = "34.244.16.40"
 TAL_PORT = 8080
 mining_slices = "1/1"
 TIME_BETWEEN_SENDS = 5 * 60  # 5 min
-send_self_node = True
 # try to get ip and port from user input:
 try:
 	SELF_PORT = int(sys.argv[1])
@@ -42,7 +41,6 @@ try:
 	# {so they try numbers for mining from different xranges.
 
 	TAL_IP, TAL_PORT = sys.argv[3].split(":")
-	send_self_node = bool(sys.argv[4])
 
 except IndexError: pass
 
@@ -53,8 +51,8 @@ MINING_STOPPOINT = (mining_slice_1 * (1 << 16)) // mining_slice_2
 
 periodicalBuffer = sendBuffer = int(time.time())
 
-nodes_got_updated = False  # flag for when a new node is added.
-blocks_got_updated = False  # flag for when someone (might be us) succeeds in mining.
+nodes_got_updated = threading.Event()  # flag for when a new node is added.
+blocks_got_updated = threading.Event()  # flag for when someone (might be us) succeeds in mining.
 START_NODES = struct.pack(">I", 0xbeefbeef)  # {Instead of unpacking and comparing to the number everytime we
 START_BLOCKS = struct.pack(">I", 0xdeaddead)  # {will compare the raw string to the packed number.
 backup = open("backup.bin", "r+b")
@@ -100,8 +98,7 @@ class Node(object):
 		return (self.host, self.port, self.team, self.ts)[index]
 
 
-if send_self_node: SELF_NODE = Node(SELF_IP, SELF_PORT, TEAM_NAME, int(time.time()))
-else: SELF_NODE = []
+SELF_NODE = Node(SELF_IP, SELF_PORT, TEAM_NAME, int(time.time()))
 
 
 class CutError(IndexError):
@@ -184,22 +181,23 @@ def createMsg(cmd, node_dict, block_list):
 
 
 def updateByNodes(nodes_dict):
-	global activeNodes, nodes_updated
+	global activeNodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
 			if ((int(time.time()) - 30 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (
 					SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
 				if addr not in activeNodes.keys():  # If it's a new node, add it
-					nodes_updated = True
+					nodes_got_updated.set()
 					activeNodes[addr] = node
 				elif activeNodes[addr].ts < node.ts:  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
-					activeNodes[
-						addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts  #  else: print Fore.MAGENTA + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"  #  else: print Fore.RED + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts, currentTime - node.ts, datestr(node.ts)
+					activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
+				#  else: print Fore.MAGENTA + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"
+			#  else: print Fore.RED + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts, currentTime - node.ts, datestr(node.ts)
 
 
 def updateByBlocks(blocks):
 	# returns True if updated blockList, else - False
-	global blockList, blocks_got_updated
+	global blockList
 	with blocks_lock:
 		if len(blockList) <= 2:
 			blockList = blocks
@@ -207,7 +205,7 @@ def updateByBlocks(blocks):
 		# else: check if ((list is longer than ours) and (last block is valid)) and (the lists are connected)
 		if (len(blockList) < len(blocks)):  # and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blockList[-1],blocks[len(blockList)])==0:
 			blockList = blocks
-			blocks_got_updated = True
+			blocks_got_updated.set()
 
 
 def recvMsg(sock, desired_msg_cmd, timeout=15):
@@ -271,7 +269,7 @@ def inputLoop():
 
 
 def miningLoop():
-	global blockList, blocks_got_updated
+	global blockList
 	new_block = None
 	while True:
 		if blockList:  # blockList aint empty
@@ -285,13 +283,13 @@ def miningLoop():
 			for i in xrange(MINING_STARTPOINT, MINING_STOPPOINT):
 				start_num = i * (1 << 16)
 				new_block = hashspeed2.MineCoinAttempts(wallet, blockList[-1], start_num, 1 << 16)
-				if blocks_got_updated or new_block is not None: break  # start all over again, we have a new block
+				if blocks_got_updated.isSet() or new_block is not None: break  # start all over again, we have a new block
 
 			if new_block is not None:
 				safeprint(Style.BRIGHT + Fore.BLUE + "[miningLoop]: Mining attempt succeeded (!) \a")
 				blockList.append(new_block)
-				blocks_got_updated = True
-			elif blocks_got_updated: safeprint(Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block")
+				blocks_got_updated.set()
+			elif blocks_got_updated.isSet: safeprint(Fore.YELLOW + "[miningLoop]: someone succeeded mining, trying again on the new block")
 			else: safeprint(Fore.RED + "[miningLoop]: no success after %d*2^16 tries :,( " % (MINING_STOPPOINT - MINING_STARTPOINT))  # the for loop finished without breaking :(
 			time.sleep(2)
 		else:
@@ -307,7 +305,7 @@ def addNode(ip, port, name, ts):
 
 
 def debugLoop():  # 4th (!) thread for mostly printing wanted variables.
-	global sendBuffer, periodicalBuffer, activeNodes, blockList, nodes_got_updated
+	global sendBuffer, periodicalBuffer, activeNodes, blockList
 	while True:
 		try:
 			inpt = raw_input(">")
@@ -332,7 +330,7 @@ miningThread.start()
 def CommOut(addr, team=""):  # Send and receive response (optional 'team' argument for prints)
 	team_str = (team and " (" + team + ")")  # Will add '(<team>)' to the prints if team string is present.
 	address_info = strAddress(addr) + team_str
-	safeprint(Fore.YELLOW + "[CommOut]: trying to comminucate with {}:".format(address_info))
+	safeprint(Fore.YELLOW + "[CommOut]: trying to communicate with {}:".format(address_info))
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.connect((TAL_IP, TAL_PORT))  # Tal's main server - TeamDebug
 	out_msg = createMsg(1, [SELF_NODE], [])
@@ -371,9 +369,10 @@ while True:
 	elif not activeNodes:
 		safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with main server:")
 		CommMain()
-	if nodes_got_updated or blocks_got_updated or int(time.time()) - TIME_BETWEEN_SENDS >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
+	if nodes_got_updated.isSet() or blocks_got_updated.isSet() or int(time.time()) - TIME_BETWEEN_SENDS >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = int(time.time())  # resetting the timer
-		nodes_got_updated = blocks_got_updated = False  # Turn off the flag for triggering this very If nest.
+		nodes_got_updated.clear()
+		blocks_got_updated.clear()  # Turn off the flag for triggering this very If nest.
 		safeprint("deleting event has started")
 		# DELETE 30 MIN OLD NODES:
 		for node in activeNodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.

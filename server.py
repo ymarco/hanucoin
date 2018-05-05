@@ -110,8 +110,12 @@ class CutError(IndexError):
 class Cutstr(object):  # String with a self.cut(bytes) method which works like file.read(bytes).
 	"""
 	>>> CutObj = Cutstr("abcdefg")
+	>>> CutObj.string
+	"abcdefg
 	>>> CutObj.cut(2)
-
+	"ab"
+	>>> CutObj.string
+	"cdefg"
 	"""
 	def __init__(self, string):
 		self.string = string
@@ -214,17 +218,17 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 		except CutError: continue
 		except ValueError as err:
 			print '[recvMsg]: invalid data received, error: ', err
-			break
+			return {}, []
 		else:
 			print '[recvMsg]: message received successfully'
-			updateByBlocks(blocks)
-			updateByNodes(nodes)
-			break
+			return nodes, blocks
 
 
 def handleInSock(sock, addr):
 	try:
-		recvMsg(sock, desired_msg_cmd=1)
+		nodes, blocks = recvMsg(sock, desired_msg_cmd=1)
+		updateByNodes(nodes)
+		updateByBlocks(blocks)
 		sock.shutdown(socket.SHUT_RD)  # Finished receiving, now sending.
 		out_message = createMsg(2, activeNodes.values() + [SELF_NODE], blockList)
 		bytes_sent = 0
@@ -330,7 +334,9 @@ def CommMain():  # Send and receive packets from Tal
 	try:
 		sock.sendall(out_msg)
 		print "sent %d bytes to TeamDebug" % len(out_msg)
-		recvMsg(sock, desired_msg_cmd=2)
+		nodes, blocks = recvMsg(sock, desired_msg_cmd=2)
+		updateByNodes(nodes)
+		updateByBlocks(blocks)
 		print activeNodes.viewkeys()
 	except socket.timeout as err: print Fore.MAGENTA + '[CommMain]: socket.timeout while connected to tal, error: ', err
 	except socket.error as err: print Fore.RED + '[CommMain]: socket.error while connected to tal, error: ', err
@@ -373,7 +379,9 @@ while True:
 					bytes_sent += out_socket.send(out_msg[bytes_sent:])
 				out_socket.shutdown(socket.SHUT_WR)  # Finished sending, now listening.
 
-				recvMsg(out_socket, desired_msg_cmd=2)
+				nodes, blocks = recvMsg(out_socket, desired_msg_cmd=2)
+				updateByNodes(nodes)
+				updateByBlocks(blocks)
 				out_socket.shutdown(2)  # Shutdown both ends, optional but favorable.
 
 			except socket.timeout as err:    print Fore.MAGENTA + '[outputLoop]: socket.timeout: while connected to {}, error: "{}"'.format(nod[:3], err)

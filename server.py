@@ -184,7 +184,7 @@ def updateByNodes(nodes_dict):
 	global activeNodes, nodes_updated
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if ((int(time.time()) - 60 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
+			if ((int(time.time()) - 30 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
 				if addr not in activeNodes.keys():  # If it's a new node, add it
 					nodes_updated = True
 					activeNodes[addr] = node

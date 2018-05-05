@@ -161,7 +161,6 @@ def parseMsg(msg, desired_cmd):
 	block_count = struct.unpack(">I", msg.cut(4))[0]
 	for _ in xrange(block_count):
 		blocks.append(msg.cut(32))  # NEEDS CHANGES AT THE LATER STEP
-	safeprint('    [parseMsg]: finished parsing. block count: ', block_count)
 	return nodes, blocks
 
 
@@ -192,8 +191,6 @@ def updateByNodes(nodes_dict):
 					activeNodes[addr] = node
 				elif activeNodes[addr].ts < node.ts:  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
-				# else: print Fore.MAGENTA + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"
-			# else: print Fore.RED + "DIDN'T ACCEPT NODE OF " + strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts, currentTime - node.ts, datestr(node.ts)
 
 
 def updateByBlocks(blocks):
@@ -364,7 +361,7 @@ while True:
 
 		writeBackup(createMsg(1, activeNodes.viewvalues(), []))
 		SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
-		safeprint(Fore.CYAN + "activeNodes: ",activeNodes.keys())
+		safeprint(Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys()))
 		CommMain()  # Ensure that we are still up with the main server (Tal)
 
 		# DELETE 30 MIN OLD NODES:

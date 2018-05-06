@@ -1,4 +1,4 @@
-from __future__ import division,print_func
+from __future__ import print_function, division
 from urllib2 import urlopen
 from random import sample
 from multiprocessing import Pool  #not used currently

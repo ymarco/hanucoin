@@ -99,9 +99,9 @@ class CutError(IndexError):
 	pass
 
 
-class Cutstr(object):  # String with a self.cut(bytes) method which works like file.read(bytes).
+class CutStr(object):  # String with a self.cut(bytes) method which works like file.read(bytes).
 	"""
-	>>> CutObj = Cutstr("abcdefg")
+	>>> CutObj = CutStr("abcdefg")
 	>>> CutObj.string
 	"abcdefg"
 	>>> CutObj.cut(2)
@@ -135,7 +135,7 @@ def writeBackup(msg):
 
 
 def parseMsg(msg, desired_cmd):
-	msg = Cutstr(msg)
+	msg = CutStr(msg)
 	nodes = {}
 	blocks = []
 	if desired_cmd != struct.unpack(">I", msg.cut(4))[0]: raise ValueError("[parseMsg]: Wrong cmd accepted")
@@ -256,7 +256,6 @@ def acceptLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually the same ip only has 1 team.
-		# safeprint(Style.BRIGHT+Fore.MAGENTA,[node.team for key,node in activeNodes.iteritems() if key[0]==addr[0]])
 		safeprint(Fore.YELLOW + Style.BRIGHT + "[acceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")
 		handleInSockThread.daemon = True
@@ -347,7 +346,7 @@ def CommMain():  # Communicate with the main server (Tal's)
 	CommOut((TAL_IP, TAL_PORT), team_info="CommMain: TeamDebug")
 
 
-CommMain()  # Communicate with tal for the first time
+CommMain()  # Communicate with Tal for the first time
 
 while True:
 	if int(time.time()) - 5 * 60 >= periodicalBuffer:  # Backup every 5 minutes:
@@ -371,12 +370,10 @@ while True:
 		sendBuffer = int(time.time())  # resetting the timer
 		nodes_got_updated.clear()
 		blocks_got_updated.clear()  # Turn off the flag for triggering this very If nest.
-		safeprint("deleting event has started")
-
 		for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
 			CommOut(node[:2], team_info=node.team)
 
-	if exit_event.wait(1): break  # we dont want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
+	if exit_event.wait(1): break  # we don't want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
 # we will get here somehow, probably user input from debugLoop:
 safeprint("Main thread ended, terminating program.")

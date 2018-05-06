@@ -393,7 +393,7 @@ backup.close()  # sys.exit(0)
 
 # 1. Make more things into functions (ex. file backup should be a function) | did writeBackup func ~Marco | did CommOut() ~Banos
 # 2. We should probably rename mining_slice_1 and 2 to something more readable ~Banos | im open to suggestions ~Marco
-# 3. Simplfy things regarding the exit event and the atexit registered function (add comments and improve variable names or thing of a different code design)
+# 3. Simplify things regarding the exit event and the atexit registered function (add comments and improve variable names or thing of a different code design)
 # 4.
 # 5.
 

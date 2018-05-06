@@ -1,7 +1,7 @@
 from __future__ import print_function, division
 from urllib2 import urlopen
 from random import sample
-import threading, socket, hashspeed2, time, struct, sys, atexit
+import threading, socket, hashspeed2, time, struct, sys, atexit, utils
 
 
 class dictobj(object):
@@ -11,10 +11,11 @@ class dictobj(object):
 
 try:
 	from colorama import Fore, Back, Style, init as initColorama
-
 	initColorama(autoreset=True)
 except ImportError:
-	Fore = dictobj({"RED": "", "BLUE": "", "CYAN": "", "GREEN": "", "YELLOW": "", "MAGENTA": ""})
+	Fore = dictobj({"RED": "", "BLUE": "", "CYAN": "", "GREEN": "", "YELLOW": "", "MAGENTA": ""}) #If colorama isn't installed the colorama variables will all be ""
+	Style = dictobj({"BRIGHT":"","DIM":"","NORMAL":""})
+
 
 # Exit event for terminating program (call exit() or exit_event.set()):
 exit_event = threading.Event()
@@ -64,16 +65,6 @@ blocks_lock = threading.Lock()  # locks prevent threads from changing the node a
 print_lock = threading.Lock()
 time.sleep(0)
 
-
-def strAddress(addr_tup):
-	return addr_tup[0] + ":" + str(addr_tup[1])
-
-
-def datestr(secs):
-	dateobj = time.gmtime(secs)
-	return str(dateobj.tm_mday) + "/" + str(dateobj.tm_mon) + "/" + str(dateobj.tm_year) + " - " + str(dateobj.tm_hour) + ":" + str(dateobj.tm_min) + ":" + str(dateobj.tm_sec)
-
-
 def safeprint(*args):
 	with print_lock:
 		print(*args)
@@ -103,7 +94,7 @@ SELF_NODE = Node(SELF_IP, SELF_PORT, TEAM_NAME, int(time.time()))
 
 
 class CutError(IndexError):
-	pass  # Will be used later
+	pass
 
 
 class Cutstr(object):  # String with a self.cut(bytes) method which works like file.read(bytes).
@@ -191,7 +182,8 @@ def updateByNodes(nodes_dict):
 					activeNodes[addr] = node
 				elif activeNodes[addr].ts < node.ts:  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
 					activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
-
+			# else: print Fore.MAGENTA + "DIDN'T ACCEPT A NODE OF " + utils.strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"
+		# else: print Fore.RED + "DIDN'T ACCEPT A NODE OF " + utils.strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts, currentTime - node.ts, utils.stdDate(node.ts)
 
 def updateByBlocks(blocks):
 	# returns True if updated blockList, else - False
@@ -239,7 +231,6 @@ def handleInSock(sock, address_info):
 	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %d bytes sent successfully back to: %s' % (len(out_message), address_info))
 	finally: sock.close()
 
-
 backupMSG = backup.read()
 if backupMSG:
 	safeprint('Loading backup')
@@ -259,11 +250,11 @@ def acceptLoop():
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		address_info = strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
+		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually the same ip only has 1 team.
 		# safeprint(Style.BRIGHT+Fore.MAGENTA,[node.team for key,node in activeNodes.iteritems() if key[0]==addr[0]])
 		safeprint(Fore.GREEN + "[acceptLoop]: got a connection from: " + address_info)
-		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=strAddress(addr) + " inputThread")
+		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")
 		handleInSockThread.daemon = True
 		handleInSockThread.start()
 
@@ -329,7 +320,7 @@ miningThread.start()
 
 def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' argument for prints)
 	team_str = (team_info and " (" + team_info + ")")  # Will add '(<team>)' to the prints if team string is present.
-	address_info = strAddress(addr) + team_str
+	address_info = utils.strAddress(addr) + team_str
 	safeprint(Fore.YELLOW + "[CommOut]: trying to communicate with {}:".format(address_info))
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.connect((TAL_IP, TAL_PORT))  # Tal's main server - TeamDebug

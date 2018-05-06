@@ -121,7 +121,7 @@ def IsValidBlockUnpacked(prev_block_tuple, block_tuple):
 
 
 def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
-    prev_block = struct.unpack(">LL8sL12s", prev_block_bin)
+    prev_block = struct.unpack(">LL8s4s12s", prev_block_bin)
     serial, w, prev_prev_sig, prev_puzzle, prev_sig  = prev_block
     new_serial = serial + 1
     prev_half = prev_sig[:8]

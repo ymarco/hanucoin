@@ -1,4 +1,14 @@
 WRITE SHIT HERE IF YOU WANT TO
 02/03/2018 23:54 @Puntsiluntsi:
- server4now now uses the module 'colorama' which implements colored text in cmd.
+ server now uses the module 'colorama' which implements colored text in cmd.
  Installation files are in the new installation folder (run install-pip then install-colorama)
+
+5/5/2018 @yoavm448:
+ To run server:
+    python server.py <port> <mining_slice> <init_ip>:<init_port>
+ The defaults are:
+    port = 8089
+    mining_slice = 1/1
+    init_ip = 34.244.16.40
+    init_port = 8080
+

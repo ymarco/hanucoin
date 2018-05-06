@@ -1,7 +1,8 @@
 import hashlib
 import struct
 import random
-
+import itertools
+import utils
 def Log2(n):
     """Log2(n) - how many times n can be be divided by2 before it is zero.
     >>> Log2(0)
@@ -93,15 +94,15 @@ def CheckBlockSignature(serial, wallet, prev_sig, puzzle, block_sig):
         return 5
     return 0
 
-def unpack_clock_to_tuple(block_bin):
+def unpack_block_to_tuple(block_bin):
     return struct.unpack(">LL8sL12s", block_bin)
 
 def IsValidBlock(prev_block_bin, block_bin):
     """Check if block_bin is valid given the previous block.
     return 0 if Block ok, a reason number if not.
     """
-    prev_block = unpack_clock_to_tuple(prev_block_bin)
-    block = unpack_clock_to_tuple(block_bin)
+    prev_block = unpack_block_to_tuple(prev_block_bin)
+    block = unpack_block_to_tuple(block_bin)
     return IsValidBlockUnpacked(prev_block, block)
 
 
@@ -119,14 +120,14 @@ def IsValidBlockUnpacked(prev_block_tuple, block_tuple):
     return CheckBlockSignature(*block_tuple)
 
 
-def MineCoinAttempts(my_wallet, prev_block_bin, attempts_count):
+def MineCoinAttempts(my_wallet, prev_block_bin, start_num, attempts_count):
     prev_block = struct.unpack(">LL8sL12s", prev_block_bin)
     serial, w, prev_prev_sig, prev_puzzle, prev_sig  = prev_block
     new_serial = serial + 1
     prev_half = prev_sig[:8]
     n_zeros = NumberOfZerosForPuzzle(new_serial)
-    for _ in xrange(attempts_count):
-        puzzle = random.randint(0, 1<<32 - 1)
+    if start_num+attempts_count > 1<<32: attempts_count = 1<<32 - start_num
+    for puzzle in utils.exrange(start_num,start_num+attempts_count): #same as xrange but for numbers bigger than 32 bit (utils.py)
         #print new_serial, my_wallet, prev_half, puzzle
         block_bin = struct.pack(">LL8sL", new_serial, my_wallet, prev_half, puzzle)
         m = hashlib.md5()
@@ -135,7 +136,8 @@ def MineCoinAttempts(my_wallet, prev_block_bin, attempts_count):
         if CheckSignature(sig, n_zeros):
             block_bin += sig[:12]
             return block_bin # new block
-    return None # could not find block in attempts_count
+    return None
+
 
 def MineCoin(my_wallet, prev_block_bin):
     new_block = None

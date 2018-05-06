@@ -1,9 +1,10 @@
 *.sublime-project
 *.sublime-workspace
-test*
+*test*
 *.pyc
 cd ..
 *ign.*
 *IGN*
 *.bin
 backup.bin
+spam.py

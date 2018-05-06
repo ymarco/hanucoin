@@ -44,7 +44,7 @@ try:
 	# {so they try numbers for mining from different xranges.
 
 	TAL_IP, TAL_PORT = sys.argv[3].split(":")
-	POOL_PROCESS_NUM = sys.argv[3]  # will be in use when we do pool
+	POOL_PROCESS_NUM = sys.argv[4]  # will be in use when we do pool
 
 except IndexError: pass
 

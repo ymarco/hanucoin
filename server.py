@@ -257,7 +257,7 @@ def acceptLoop():
 		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually the same ip only has 1 team.
 		# safeprint(Style.BRIGHT+Fore.MAGENTA,[node.team for key,node in activeNodes.iteritems() if key[0]==addr[0]])
-		safeprint(Fore.GREEN + Style.BRIGHT + "[acceptLoop]: got a connection from: " + address_info)
+		safeprint(Fore.YELLOW + Style.BRIGHT + "[acceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")
 		handleInSockThread.daemon = True
 		handleInSockThread.start()
@@ -281,7 +281,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				if blocks_got_updated.isSet() or new_block is not None: break  # start all over again, we have a new block
 
 			if new_block:
-				safeprint(Style.BRIGHT + Fore.BLUE + "[miningLoop]: Mining attempt succeeded (!) \a")
+				safeprint(Style.BRIGHT + Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!) \a")
 				blockList.append(new_block)
 				blocks_got_updated.set()
 			time.sleep(2)

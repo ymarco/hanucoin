@@ -366,6 +366,7 @@ while True:
 	elif not activeNodes:
 		safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with TeamDebug:")
 		CommMain()
+		time.sleep(3)
 	if nodes_got_updated.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
 		sendBuffer = int(time.time())  # resetting the timer
 		nodes_got_updated.clear()

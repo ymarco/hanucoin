@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 // function declaration
-char* StringSlice(char * str, size_t slice_start, size_t slice_end)
-unsigned int* UnpackBlockToArray(char * block_bin) //int * var  ---> var is an array of ints. var[1], var[2]...
-char* PackArrayToBlock(int block_arr[8])
+void *memcpy(void *str1, const void *str2, size_t n) //built in func. google it
+char* StringSlice(char * str, size_t slice_start, size_t slice_end);
+unsigned int* UnpackBlockToArray(char * block_bin); //int * var  ---> var is an array of ints. var[1], var[2]...
+char* PackArrayToBlock(int block_arr[8]);
 char* MineCoinAttempts(int my_wallet, int prev_block_bin, int start_num, int attempts_count);
 
 
@@ -26,25 +27,25 @@ int main() {
 
 
 char * StringSlice(char *str_pos, size_t slice_start, size_t slice_end){
-	char res[slice_end - slice_start]
+	char res[slice_end - slice_start];
 	for(int i=0, i < slice_start, i++){
-		res[i] = str[i]
+		res[i] = str[i];
 	}
-	res[i++] = \0
-	return &res
+	res[i++] = \0;
+	return &res;
 }
 
 unsigned int * UnpackBlockToArray(char * block_bin){
-	unsigned int res[8]
+	unsigned int res[8];
 	for(int i=0, i<8, i++){
-		res[i] = StringSlice(block_bin, i*4, i*4+4)
+		res[i] = StringSlice(block_bin, i*4, i*4+4);
 	}
 }
 
 char * PackArrayToBlock(int block_arr[]){
-	char * res
+	char * res;
 	for(int i=0, ){
-		strcat()
+		strcat();
 	}
 }
 

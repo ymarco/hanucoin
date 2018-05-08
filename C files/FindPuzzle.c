@@ -1,16 +1,18 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "md5.h"
 
-int FindPuzzle(const char* base_str,int n_zeros,unsigned int puzzle_int,unsigned char *stop_flag){
-	char puzzle[4];
+char *FindPuzzle(const char* base_str,int n_zeros,unsigned int puzzle_int,unsigned char *stop_flag){
+	char *puzzle = malloc(4);
+	puzzle[4]='\0';
 	char sig[16];
 	MD5_CTX obj;
 	while (!*stop_flag){
 		puzzle[0] = puzzle_int>>24;
 		puzzle[1] = (puzzle_int>>16)&0xFF;
 		puzzle[2] = (puzzle_int>>8)&0xFF;
-		puzzle[3] = puzzle_int&0xFF,'\0'; // puzzle=struct.pack(">I",puzzle_int)
+		puzzle[3] = puzzle_int&0xFF; // puzzle=struct.pack(">I",puzzle_int)
 		MD5_Init(&obj); // Clear hash
 		MD5_Update(&obj, base_str, 16); // 16 Bytes to hash (full block - puzzle - signature)
 		MD5_Update(&obj, puzzle, 4); // Update puzzle part

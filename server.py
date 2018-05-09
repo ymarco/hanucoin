@@ -211,10 +211,11 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 		except CutError: continue
 		except ValueError as err:
 			safeprint(Fore.MAGENTA + '[recvMsg]: invalid data received, error: ', err)
-			return {}, []
+			break
 		else:
 			safeprint(Fore.GREEN + '[recvMsg]: message received successfully')
 			return nodes, blocks
+		return {},[]
 
 
 def handleInSock(sock, address_info):

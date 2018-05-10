@@ -176,7 +176,7 @@ def updateByNodes(nodes_dict):
 	global activeNodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if not ((int(time.time()) - 30 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (SELF_IP, SELF_PORT):
+			if ((int(time.time()) - 30 * 60) > node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) == addr == (SELF_IP, SELF_PORT):
 				continue  # If it's a node from the future or from more than 30 minutes ago
 
 			if addr not in activeNodes.keys():  # If it's a new node, add it
@@ -284,6 +284,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 		time.sleep(3)  # wait, maybe blockList will get an update
 
 	while True:
+		pool = Pool(processes=POOL_PROCESS_NUM)
 		res_obj = pool.imap_unordered(Miner, pool_input_list)
 		while True:
 			try:
@@ -301,6 +302,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 			if blocks_got_updated.isSet():
 				safeprint(Fore.RED + "[miningLoop]: someone else succeeded mining D:")
 				pool.terminate()  # start mining again, on the new block
+				pool.join()
 				break
 
 

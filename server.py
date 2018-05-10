@@ -1,11 +1,11 @@
 from __future__ import print_function, division
 from urllib2 import urlopen
 from random import sample
-from multiprocessing import Pool  #not used currently
+from multiprocessing import Pool
 import threading, socket, hashspeed2, time, struct, sys, atexit, utils
 
 
-class dictobj(object):
+class DictObj(object):
 	def __init__(self, diction):
 		self.__dict__ = diction
 
@@ -15,8 +15,8 @@ try:
 
 	initColorama(autoreset=True)
 except ImportError:
-	Fore = dictobj({"RED": "", "BLUE": "", "CYAN": "", "GREEN": "", "YELLOW": "", "MAGENTA": ""})  # If colorama isn't installed the colorama variables will all be ""
-	Style = dictobj({"BRIGHT": "", "DIM": "", "NORMAL": ""})
+	Fore = DictObj({"RED": "", "BLUE": "", "CYAN": "", "GREEN": "", "YELLOW": "", "MAGENTA": ""})  # If colorama isn't installed the colorama variables will all be ""
+	Style = DictObj({"BRIGHT": "", "DIM": "", "NORMAL": ""})
 
 # Exit event for terminating program (call exit() or exit_event.set()):
 exit_event = threading.Event()
@@ -34,8 +34,8 @@ TEAM_NAME = "Lead"
 TAL_IP = "34.244.16.40"
 TAL_PORT = 8080
 mining_slice_1 = mining_slice_2 = 1
-POOL_PROCESS_NUM = 2  # will be used when we do mining in pool
-# try to get ip and port from user input:
+POOL_PROCESS_NUM = 3
+# try to get port and stuff from user input:
 try:
 	SELF_PORT = int(sys.argv[1])
 	mining_slice_1, mining_slice_2 = map(int, sys.argv[2].split('/'))
@@ -43,8 +43,7 @@ try:
 	# {say we want to run 3 servers, we'll run the 1st in '1/3' slice, 2nd in '2/3' slice, 3rd in '3/3' slice
 	# {so they try numbers for mining from different xranges.
 
-	TAL_IP, TAL_PORT = sys.argv[3].split(":")
-	POOL_PROCESS_NUM = sys.argv[4]  # will be in use when we do pool
+	POOL_PROCESS_NUM = int(sys.argv[3])  # set to 0 if you don't want to mine at all
 
 except IndexError: pass
 
@@ -153,7 +152,7 @@ def parseMsg(msg, desired_cmd):
 	if msg.cut(4) != START_BLOCKS: raise ValueError("[parseMsg]: Wrong start_blocks")
 	block_count = struct.unpack(">I", msg.cut(4))[0]
 	for _ in xrange(block_count):
-		blocks.append(msg.cut(32))  # NEEDS CHANGES AT THE LATER STEP
+		blocks.append(msg.cut(32))
 	return nodes, blocks
 
 
@@ -177,26 +176,25 @@ def updateByNodes(nodes_dict):
 	global activeNodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if ((int(time.time()) - 30 * 60) < node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) != addr != (
-					SELF_IP, SELF_PORT):  # If it's not a message from the future or from more than 30 minutes ago
-				if addr not in activeNodes.keys():  # If it's a new node, add it
-					nodes_got_updated.set()
-					activeNodes[addr] = node
-				elif activeNodes[addr].ts < node.ts:  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
-					activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
-				#  else: print Fore.MAGENTA + "DIDN'T ACCEPT A NODE OF " + utils.strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"
-			#  else: print Fore.RED + "DIDN'T ACCEPT A NODE OF " + utils.strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts,  # currentTime - node.ts, utils.stdDate(node.ts)
+			if ((int(time.time()) - 30 * 60) > node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) == addr == (SELF_IP, SELF_PORT):
+				continue  # If it's a node from the future or from more than 30 minutes ago
+
+			if addr not in activeNodes.keys():  # If it's a new node, add it
+				nodes_got_updated.set()
+				activeNodes[addr] = node
+			elif activeNodes[addr].ts < node.ts:  # elif prevents exceptions here (activeNodes[addr] exists - we already have this node)
+				activeNodes[addr].ts = node.ts  # the node was seen later than what we have in activeNodes, so we update the ts
+			#  else: print Fore.MAGENTA + "DIDN'T ACCEPT A NODE OF " + utils.strAddress(addr) + " DUE TO AN OLDER TIMESTAMP THAN OURS"
+		#  else: print Fore.RED + "DIDN'T ACCEPT A NODE OF " + utils.strAddress(addr) + " DUE TO AN INVALID TIMESTAMP/ADDRESS: ", currentTime - 30 * 60 - node.ts,  # currentTime - node.ts, utils.stdDate(node.ts)
 
 
 def updateByBlocks(blocks):
-	# returns True if updated blockList, else - False
 	global blockList
 	with blocks_lock:
 		if len(blockList) <= 2:
 			blockList = blocks
-			return True
 		# else: check if ((list is longer than ours) and (last block is valid)) and (the lists are connected)
-		if (len(blockList) < len(blocks)):  # and (hashspeed2.IsValidBlock(blocks[-2],blocks[-1])==0) and hashspeed2.IsValidBlock(blockList[-1],blocks[len(blockList)])==0:
+		elif (len(blockList) < len(blocks)) and (hashspeed2.IsValidBlock(blocks[-2], blocks[-1]) == 0):  # and hashspeed2.IsValidBlock(blockList[-1],blocks[len(blockList)])==0:
 			blockList = blocks
 			blocks_got_updated.set()
 
@@ -211,7 +209,7 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 		except CutError: continue
 		except ValueError as err:
 			safeprint(Fore.MAGENTA + '[recvMsg]: invalid data received, error: ', err)
-			return {}, []
+			break
 		else:
 			safeprint(Fore.GREEN + '[recvMsg]: message received successfully')
 			return nodes, blocks
@@ -232,23 +230,16 @@ def handleInSock(sock, address_info):
 
 	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(address_info, err))
 	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(address_info, err))  # Select will be added later
-	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %dkb sent successfully back to: %s' % (len(out_message)//1000, address_info))
+	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %dkb sent successfully back to: %s' % (len(out_message)//(1<<10), address_info))
 	finally: sock.close()
 
 
-backupMSG = backup.read()
-if backupMSG:
-	safeprint('Loading backup')
-	BACKUP_NODES, _ = parseMsg(backupMSG, 1)  # get nodes from backup file
-	updateByNodes(BACKUP_NODES)  # we don't want to updateByBlocks cause these blocks are probably outdated
+if __name__ == "__main__":
+	# listen_socket is global
+	listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	listen_socket.bind(('', SELF_PORT))
 
-# listen_socket is global
-listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-listen_socket.bind(('', SELF_PORT))
-
-socket.setdefaulttimeout(15)  # All sockets except listen_socket (socket for accepting) need timeout. may be too short
-# (listen_socket accepts sockets on a single thread "acceptLoop")
-out_messages_input = []
+	socket.setdefaulttimeout(15)  # All sockets except listen_socket (socket for accepting) need timeout. may be too short
 
 
 def acceptLoop():
@@ -256,42 +247,68 @@ def acceptLoop():
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
-		#  ^ evaluates to "ip:port (team1/team2/team3)". usually the same ip only has 1 team.
+		#  ^ evaluates to "ip:port (team1/team2/team3)". usually each ip only has 1 team.
 		safeprint(Fore.YELLOW + Style.BRIGHT + "[acceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")
 		handleInSockThread.daemon = True
 		handleInSockThread.start()
 
 
+def Miner((mining_range_start, mining_range_stop)):
+	if hashspeed2.unpack_block_to_tuple(blockList[-1])[1] == SELF_WALLET:
+		wallet = NOONE_WALLET
+		safeprint(Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress')
+	else:
+		wallet = SELF_WALLET
+		safeprint(Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress')
+
+	for i in xrange(mining_range_start, mining_range_stop):
+		start_num = i * (1 << 16)
+		new_block = hashspeed2.MineCoinAttempts(wallet, blockList[-1], start_num, 1 << 16)
+		if new_block: return new_block  # success!
+	return None
+
+
 def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_STOPPOINT):
 	global blockList
-	new_block = None
+	pool_input_list = []
+	# preparing ranges for our workers to mine on:
+	for num in xrange(POOL_PROCESS_NUM):
+		start = mining_start_range + num*(mining_stop_range - mining_start_range)/POOL_PROCESS_NUM
+		stop = mining_start_range + (num + 1)*(mining_stop_range - mining_start_range)/POOL_PROCESS_NUM
+		pool_input_list.append((start, stop))
+
+	time.sleep(10)  # wait for blockList to update
+	while not blockList:
+		safeprint(Fore.YELLOW + "[miningLoop]: blockList is empty")
+		time.sleep(3)  # wait, maybe blockList will get an update
+
 	while True:
-		if blockList:  # blockList ain't empty
-			if hashspeed2.unpack_block_to_tuple(blockList[-1])[1] == SELF_WALLET:
-				wallet = NOONE_WALLET
-				safeprint(Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress')
-			else:
-				wallet = SELF_WALLET
-				safeprint(Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress')
-
-			for i in xrange(mining_start_range, mining_stop_range):
-				start_num = i * (1 << 16)
-				new_block = hashspeed2.MineCoinAttempts(wallet, blockList[-1], start_num, 1 << 16)
-				if blocks_got_updated.isSet() or new_block is not None: break  # start all over again, we have a new block
-
-			if new_block:
+		pool = Pool(processes=POOL_PROCESS_NUM)
+		res_obj = pool.imap_unordered(Miner, pool_input_list)
+		while True:
+			try:
+				new_block = res_obj.next(3)  # raises Exception if res_obj doesnt have results
+				# no exception? we mined a block!
+				if not new_block: continue  # possible that the for loop in Miner finished without success. if so, it returns None
+				# we DID mine!
 				safeprint(Style.BRIGHT + Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!) \a")
+				pool.terminate()  # no need for the other Miners to continue mining on that block
 				blockList.append(new_block)
 				blocks_got_updated.set()
-			time.sleep(2)
-		else:
-			safeprint(Fore.YELLOW + "[miningLoop]: blockList is empty")
-			time.sleep(3)  # wait, maybe blockList will get updated.
-		time.sleep(0.1)
+				break
+			except Exception as err: pass  # no success mining? alright, keep trying
+
+			if blocks_got_updated.isSet():
+				safeprint(Fore.RED + "[miningLoop]: someone else succeeded mining D:")
+				pool.terminate()  # start mining again, on the new block
+				pool.join()
+				break
 
 
 # >*****DEBUG*******
+
+
 def addNode(ip, port, name, ts):
 	global activeNodes
 	activeNodes.update({(ip, port): Node(ip, port, name, ts)})
@@ -305,19 +322,6 @@ def debugLoop():  # 4th (!) thread for mostly printing wanted variables.
 			if inpt == "exit": exit()
 			else: exec inpt
 		except Exception as err: safeprint(err)
-
-
-debugThread = threading.Thread(target=debugLoop, name="debug")
-debugThread.daemon = True
-debugThread.start()
-
-acceptThread = threading.Thread(target=acceptLoop, name="accept")
-acceptThread.daemon = True
-acceptThread.start()
-
-miningThread = threading.Thread(target=miningLoop, name="mining")
-miningThread.daemon = True
-miningThread.start()
 
 
 def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' argument for prints)
@@ -347,39 +351,62 @@ def CommMain():  # Communicate with the main server (Tal's)
 	CommOut((TAL_IP, TAL_PORT), team_info="CommMain: TeamDebug")
 
 
-CommMain()  # Communicate with Tal for the first time
+if __name__ == "__main__":  # MAIN PROGRAM
 
-while True:
-	if int(time.time()) - 5 * 60 >= periodicalBuffer:  # Backup every 5 minutes:
-		periodicalBuffer = int(time.time())  # Reset 5 min timer
+	acceptThread = threading.Thread(target=acceptLoop, name="accept")
+	acceptThread.daemon = True
+	acceptThread.start()
 
-		writeBackup(createMsg(1, activeNodes.viewvalues(), []))
-		SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
-		safeprint(Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys()))
-		CommMain()  # Ensure that we are still up with the main server (Tal)
+	CommMain()  # Communicate with Tal for the first time
 
-		# DELETE 30 MIN OLD NODES:
-		for node in activeNodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
-			if int(time.time()) - node.ts > 30 * 60:  # the node wasn't seen in 30 min:
-				safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
-				del activeNodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
+	debugThread = threading.Thread(target=debugLoop, name="debug")
+	debugThread.daemon = True
+	debugThread.start()
 
-	elif not activeNodes:
-		safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with TeamDebug:")
-		CommMain()
-		time.sleep(3)
-	if nodes_got_updated.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
-		sendBuffer = int(time.time())  # resetting the timer
-		nodes_got_updated.clear()
-		blocks_got_updated.clear()  # Turn off the flag for triggering this very If nest.
-		for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
-			CommOut(node[:2], team_info=node.team)
+	if POOL_PROCESS_NUM != 0:
+		miningThread = threading.Thread(target=miningLoop, name="mining")
+		miningThread.daemon = True
+		miningThread.start()
 
-	if exit_event.wait(1): break  # we don't want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
+	backupMSG = backup.read()
+	if backupMSG:
+		safeprint('Loading backup')
+		BACKUP_NODES, _ = parseMsg(backupMSG, 1)  # get nodes from backup file
+		updateByNodes(BACKUP_NODES)  # we don't want to updateByBlocks cause these blocks are probably outdated
 
-# we will get here somehow, probably user input from debugLoop:
-safeprint("Main thread ended, terminating program.")
-backup.close()  # sys.exit(0)
+	while True:
+		if int(time.time()) - 5 * 60 >= periodicalBuffer:  # Backup every 5 minutes:
+			periodicalBuffer = int(time.time())  # Reset 5 min timer
+
+			writeBackup(createMsg(1, activeNodes.viewvalues(), []))
+			SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
+			safeprint(Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys()))
+			CommMain()  # Ensure that we are still up with the main server (Tal)
+
+			# DELETE 30 MIN OLD NODES:
+			for node in activeNodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
+				if int(time.time()) - node.ts > 30 * 60:  # the node wasn't seen in 30 min:
+					safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
+					del activeNodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
+
+		elif not activeNodes:
+			safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with TeamDebug:")
+			CommMain()
+			time.sleep(3)
+		if nodes_got_updated.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
+			sendBuffer = int(time.time())  # resetting the timer
+			nodes_got_updated.clear()
+			blocks_got_updated.clear()  # Turn off the flag for triggering this very If nest.
+			for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
+				CommOutThread = threading.Thread(target=CommOut, args=(node[:2], node.team), name=utils.strAddress(node[:3]) + " CommOut")
+				CommOutThread.daemon = True
+				CommOutThread.start()
+
+		if exit_event.wait(1): break  # we don't want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
+
+	# we will get here somehow, probably user input from debugLoop:
+	safeprint("Main thread ended, terminating program.")
+	backup.close()  # sys.exit(0)
 
 # TODO LIST:
 

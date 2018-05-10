@@ -270,7 +270,6 @@ def Miner((mining_range_start, mining_range_stop)):
 
 def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_STOPPOINT):
 	global blockList
-	pool = Pool(processes=POOL_PROCESS_NUM)
 	pool_input_list = []
 	# preparing ranges for our workers to mine on:
 	for num in xrange(POOL_PROCESS_NUM):

@@ -296,7 +296,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				blockList.append(new_block)
 				blocks_got_updated.set()
 				break
-			except Exception as err: safeprint(err)  # no success mining? alright, keep trying
+			except Exception as err: pass  # no success mining? alright, keep trying
 
 			if blocks_got_updated.isSet():
 				safeprint(Fore.RED + "[miningLoop]: someone else succeeded mining D:")

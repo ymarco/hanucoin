@@ -176,7 +176,7 @@ def updateByNodes(nodes_dict):
 	global activeNodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if ((int(time.time()) - 30 * 60) > node.ts <= int(time.time())) and (LOCALHOST, SELF_PORT) == addr == (SELF_IP, SELF_PORT):
+			if (int(time.time()) - 30 * 60) >= node.ts <= int(time.time()) or (node.ts > int(time.time())) or (LOCALHOST, SELF_PORT) == addr or addr == (SELF_IP, SELF_PORT):
 				continue  # If it's a node from the future or from more than 30 minutes ago
 
 			if addr not in activeNodes.keys():  # If it's a new node, add it
@@ -204,12 +204,11 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 	watchdog = int(time.time())
 	while int(time.time()) - watchdog < timeout:  # aborts if it lasts more than timeout
 		data += sock.recv(1 << 10)  # KiloByte
-		try:
-			nodes, blocks = parseMsg(data, desired_msg_cmd)
+		try: nodes, blocks = parseMsg(data, desired_msg_cmd)
 		except CutError: continue
 		except ValueError as err:
 			safeprint(Fore.MAGENTA + '[recvMsg]: invalid data received, error: ', err)
-			break
+			return {}, []
 		else:
 			safeprint(Fore.GREEN + '[recvMsg]: message received successfully')
 			return nodes, blocks
@@ -219,18 +218,18 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 def handleInSock(sock, address_info):
 	try:
 		nodes, blocks = recvMsg(sock, desired_msg_cmd=1)
-		updateByNodes(nodes)
-		updateByBlocks(blocks)
 		sock.shutdown(socket.SHUT_RD)  # Finished receiving, now sending.
 		out_message = createMsg(2, activeNodes.values() + [SELF_NODE], blockList)
 		sock.sendall(out_message)
 		# while bytes_sent < len(out_message):
 		# bytes_sent += sock.send(out_message[bytes_sent:])
 		sock.shutdown(2)
+		updateByNodes(nodes)
+		updateByBlocks(blocks)
 
 	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(address_info, err))
 	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(address_info, err))  # Select will be added later
-	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %dkb sent successfully back to: %s' % (len(out_message)//(1<<10), address_info))
+	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %dkb sent successfully back to: %s' % (len(out_message)//(1 << 10), address_info))
 	finally: sock.close()
 
 
@@ -297,7 +296,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				blockList.append(new_block)
 				blocks_got_updated.set()
 				break
-			except Exception as err: pass  # no success mining? alright, keep trying
+			except Exception: pass  # no success mining? alright, keep trying
 
 			if blocks_got_updated.isSet():
 				safeprint(Fore.RED + "[miningLoop]: someone else succeeded mining D:")

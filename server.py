@@ -215,6 +215,7 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 		else:
 			safeprint(Fore.GREEN + '[recvMsg]: message received successfully')
 			return nodes, blocks
+	return {}, []
 
 
 def handleInSock(sock, address_info):

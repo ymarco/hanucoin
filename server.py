@@ -299,6 +299,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				pool.join()
 				break
 			except TimeoutError: pass  # no success? alright, keep trying
+			except StopIteration: blocks_got_updated.wait()  # wait for someone else to mine
 
 			if blocks_got_updated.isSet():
 				pool.terminate()  # start mining again, on the new block

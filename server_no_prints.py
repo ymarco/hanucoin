@@ -1,7 +1,7 @@
 from __future__ import print_function, division
 from urllib2 import urlopen
 from random import sample
-from multiprocessing import Pool
+from multiprocessing import Pool, TimeoutError
 import threading, socket, hashspeed2, time, struct, sys, atexit, utils
 
 
@@ -55,6 +55,7 @@ periodicalBuffer = sendBuffer = int(time.time())
 
 nodes_got_updated = threading.Event()  # flag for when a new node is added.
 blocks_got_updated = threading.Event()  # flag for when someone (might even be us) succeeds in mining.
+we_mined_a_block = threading.Event()
 START_NODES = struct.pack(">I", 0xbeefbeef)  # {Instead of unpacking and comparing to the number every time we
 START_BLOCKS = struct.pack(">I", 0xdeaddead)  # {will compare the raw string to the packed number.
 backup = open("backup.bin", "r+b")
@@ -252,29 +253,29 @@ def acceptLoop():
 		handleInSockThread.start()
 
 
-def Miner((mining_range_start, mining_range_stop)):
-	if hashspeed2.unpack_block_to_tuple(blockList[-1])[1] == SELF_WALLET:
+def Miner((mining_range_start, mining_range_stop, block_to_mine_on)):
+	if hashspeed2.unpack_block_to_tuple(block_to_mine_on)[1] == SELF_WALLET:
 		wallet = NOONE_WALLET
 		safeprint(Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress')
 	else:
 		wallet = SELF_WALLET
 		safeprint(Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress')
-
+	safeprint("Miner: we are  done with the if's")
 	for i in xrange(mining_range_start, mining_range_stop):
 		start_num = i * (1 << 16)
-		new_block = hashspeed2.MineCoinAttempts(wallet, blockList[-1], start_num, 1 << 16)
+		new_block = hashspeed2.MineCoinAttempts(wallet, block_to_mine_on, start_num, 1 << 16)
 		if new_block: return new_block  # success!
 	return None
 
 
 def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_STOPPOINT):
+	mining_ranges = []
 	global blockList
-	pool_input_list = []
 	# preparing ranges for our workers to mine on:
 	for num in xrange(POOL_PROCESS_NUM):
-		start = mining_start_range + num*(mining_stop_range - mining_start_range)/POOL_PROCESS_NUM
-		stop = mining_start_range + (num + 1)*(mining_stop_range - mining_start_range)/POOL_PROCESS_NUM
-		pool_input_list.append((start, stop))
+		start = mining_start_range + num*(mining_stop_range - mining_start_range)//POOL_PROCESS_NUM
+		stop = mining_start_range + (num + 1)*(mining_stop_range - mining_start_range)//POOL_PROCESS_NUM
+		mining_ranges.append((start, stop))
 
 	time.sleep(10)  # wait for blockList to update
 	while not blockList:
@@ -283,23 +284,25 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 
 	while True:
 		pool = Pool(processes=POOL_PROCESS_NUM)
-		res_obj = pool.imap_unordered(Miner, pool_input_list)
+
+		res_obj = pool.imap_unordered(Miner, utils.addStrToTupList(mining_ranges, blockList[-1]))
 		while True:
 			try:
-				new_block = res_obj.next(3)  # raises Exception if res_obj doesnt have results
-				# no exception? we mined a block!
-				if not new_block: continue  # possible that the for loop in Miner finished without success. if so, it returns None
+				new_block = res_obj.next(2)  # raises TimeoutError if res_obj doesnt have results
+				if not new_block: continue  # possible that the for loop in Miner finished without success - if so, it returns None
 				# we DID mine!
 				safeprint(Style.BRIGHT + Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!) \a")
 				pool.terminate()  # no need for the other Miners to continue mining on that block
 				blockList.append(new_block)
-				blocks_got_updated.set()
+				we_mined_a_block.set()
+				pool.join()
 				break
-			except Exception: pass  # no success mining? alright, keep trying
+			except TimeoutError: pass  # no success? alright, keep trying
 
 			if blocks_got_updated.isSet():
-				safeprint(Fore.RED + "[miningLoop]: someone else succeeded mining D:")
 				pool.terminate()  # start mining again, on the new block
+				blocks_got_updated.clear()
+				safeprint(Fore.RED + "[miningLoop]: someone else succeeded mining D:")
 				pool.join()
 				break
 
@@ -391,10 +394,12 @@ if __name__ == "__main__":  # MAIN PROGRAM
 			safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with TeamDebug:")
 			CommMain()
 			time.sleep(3)
-		if nodes_got_updated.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
+
+		if nodes_got_updated.isSet() or we_mined_a_block.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
 			sendBuffer = int(time.time())  # resetting the timer
 			nodes_got_updated.clear()
-			blocks_got_updated.clear()  # Turn off the flag for triggering this very If nest.
+			we_mined_a_block.clear()  # Turn off the flag for triggering this very If nest.
+			# don't clear blocks_got_updated - miningLoop should clear it on its own
 			for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
 				CommOutThread = threading.Thread(target=CommOut, args=(node[:2], node.team), name=utils.strAddress(node[:3]) + " CommOut")
 				CommOutThread.daemon = True

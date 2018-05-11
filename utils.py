@@ -14,3 +14,8 @@ def strAddress(addr_tup):  # Converts an address tuple into a string e.g. (v)
 def stdDate(secs):
 	date_obj = time.gmtime(secs)
 	return "%s/%s/%s - %s:%s:%s" % (str(date_obj.tm_mday), str(date_obj.tm_mon), str(date_obj.tm_year), str(date_obj.tm_hour), str(date_obj.tm_min), str(date_obj.tm_sec))
+
+
+def addStrToTupList(tuple_list, string):
+	for Tup in tuple_list:
+		yield (Tup[0], Tup[1], string)

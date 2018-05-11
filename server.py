@@ -1,7 +1,7 @@
 from __future__ import print_function, division
 from urllib2 import urlopen
 from random import sample
-from multiprocessing import Pool
+from multiprocessing import Pool, TimeoutError
 import threading, socket, hashspeed2, time, struct, sys, atexit, utils
 
 
@@ -254,10 +254,8 @@ def acceptLoop():
 		handleInSockThread.start()
 
 
-def Miner((mining_range_start, mining_range_stop)):
-	safeprint("hi! im a Miner")
-	assert blockList
-	if hashspeed2.unpack_block_to_tuple(blockList[-1])[1] == SELF_WALLET:
+def Miner((mining_range_start, mining_range_stop, block_to_mine_on)):
+	if hashspeed2.unpack_block_to_tuple(block_to_mine_on)[1] == SELF_WALLET:
 		wallet = NOONE_WALLET
 		safeprint(Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress')
 	else:
@@ -266,20 +264,19 @@ def Miner((mining_range_start, mining_range_stop)):
 	safeprint("Miner: we are  done with the if's")
 	for i in xrange(mining_range_start, mining_range_stop):
 		start_num = i * (1 << 16)
-		new_block = hashspeed2.MineCoinAttempts(wallet, blockList[-1], start_num, 1 << 16)
+		new_block = hashspeed2.MineCoinAttempts(wallet, block_to_mine_on, start_num, 1 << 16)
 		if new_block: return new_block  # success!
-
 	return None
 
 
 def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_STOPPOINT):
-	pool_input_list = []
+	mining_ranges = []
 	global blockList
 	# preparing ranges for our workers to mine on:
 	for num in xrange(POOL_PROCESS_NUM):
 		start = mining_start_range + num*(mining_stop_range - mining_start_range)//POOL_PROCESS_NUM
 		stop = mining_start_range + (num + 1)*(mining_stop_range - mining_start_range)//POOL_PROCESS_NUM
-		pool_input_list.append((start, stop))
+		mining_ranges.append((start, stop))
 
 	time.sleep(10)  # wait for blockList to update
 	while not blockList:
@@ -288,10 +285,11 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 
 	while True:
 		pool = Pool(processes=POOL_PROCESS_NUM)
-		res_obj = pool.imap_unordered(Miner,  pool_input_list)
+
+		res_obj = pool.imap_unordered(Miner, utils.addStrToTupList(mining_ranges, blockList[-1]))
 		while True:
 			try:
-				new_block = res_obj.next(3)  # raises Exception if res_obj doesnt have results
+				new_block = res_obj.next(2)  # raises TimeoutError if res_obj doesnt have results
 				if not new_block: continue  # possible that the for loop in Miner finished without success - if so, it returns None
 				# we DID mine!
 				safeprint(Style.BRIGHT + Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!) \a")
@@ -300,7 +298,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				we_mined_a_block.set()
 				pool.join()
 				break
-			except StopIteration: time.sleep(2)
+			except TimeoutError: pass  # no success? alright, keep trying
 
 			if blocks_got_updated.isSet():
 				pool.terminate()  # start mining again, on the new block

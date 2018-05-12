@@ -3,7 +3,7 @@
 #include <string.h>
 #include "md5.h"
 
-int FindPuzzle(const char *base_str,int n_zeros,unsigned int puzzle_int,unsigned char *stop_flag){
+unsigned char FindPuzzle(char *base_str,int n_zeros,unsigned int puzzle_int,unsigned char *stop_flag){
 	/*
     :param *base_str:
 	:param n_zeros:
@@ -28,7 +28,9 @@ int FindPuzzle(const char *base_str,int n_zeros,unsigned int puzzle_int,unsigned
 		MD5_Final(sig, &obj); // Output hash into sig
 		puzzle_int++; // Increase puzzle_int, when it reaches the int cap it will overflow back to 0 (good for our slices)
 		if (16 - strlen(sig) >= n_zeros/8 && !(sig[15 - n_zeros/8] & (1 << n_zeros%8) - 1)){ //If the signature is valid
-			return puzzle;
+			strcat(base_str,puzzle)
+			return 1;
+	return 0; // Failed to find a correct puzzle
 		}
 	}
 }

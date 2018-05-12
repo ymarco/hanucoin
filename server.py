@@ -41,7 +41,7 @@ try:
 	mining_slice_1, mining_slice_2 = map(int, sys.argv[2].split('/'))
 	# {we'll write what slice we want to mine in. useful when several copies of this server are running together.
 	# {say we want to run 3 servers, we'll run the 1st in '1/3' slice, 2nd in '2/3' slice, 3rd in '3/3' slice
-	# {so they try numbers for mining from different xranges.
+	# {so they try numbers for mining from different ranges.
 
 	POOL_PROCESS_NUM = int(sys.argv[3])  # set to 0 if you don't want to mine at all
 
@@ -177,8 +177,8 @@ def updateByNodes(nodes_dict):
 	global activeNodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if (int(time.time()) - 30 * 60) >= node.ts <= int(time.time()) or (node.ts > int(time.time())) or (LOCALHOST, SELF_PORT) == addr or addr == (SELF_IP, SELF_PORT):
-				continue  # If it's a node from the future or from more than 30 minutes ago
+			if (int(time.time()) - 30 * 60) >= node.ts or (node.ts > int(time.time())) or (LOCALHOST, SELF_PORT) == addr or addr == (SELF_IP, SELF_PORT):
+				continue  # If it's a node from the future or from more than 30 minutes ago or contains our stuff
 
 			if addr not in activeNodes.keys():  # If it's a new node, add it
 				nodes_got_updated.set()
@@ -261,7 +261,6 @@ def Miner((mining_range_start, mining_range_stop, block_to_mine_on)):
 	else:
 		wallet = SELF_WALLET
 		safeprint(Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress')
-	safeprint("Miner: we are  done with the if's")
 	for i in xrange(mining_range_start, mining_range_stop):
 		start_num = i * (1 << 16)
 		new_block = hashspeed2.MineCoinAttempts(wallet, block_to_mine_on, start_num, 1 << 16)
@@ -289,7 +288,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 		res_obj = pool.imap_unordered(Miner, utils.addStrToTupList(mining_ranges, blockList[-1]))
 		while True:
 			try:
-				new_block = res_obj.next(2)  # raises TimeoutError if res_obj doesnt have results
+				new_block = res_obj.next(2)  # raises TimeoutError after 2 secs if res_obj doesnt have results
 				if not new_block: continue  # possible that the for loop in Miner finished without success - if so, it returns None
 				# we DID mine!
 				safeprint(Style.BRIGHT + Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!) \a")

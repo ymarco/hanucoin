@@ -26,7 +26,7 @@ exit = exit_event.set
 
 # Default values:
 SELF_WALLET = hashspeed2.WalletCode(["Lead"])
-NOONE_WALLET = hashspeed2.WalletCode(["Bob"])
+NOONE_WALLET = hashspeed2.WalletCode(["Silver"])
 SELF_IP = urlopen('http://ip.42.pl/raw').read()  # Get public ip
 SELF_PORT = 8089
 LOCALHOST = '127.0.0.1'
@@ -248,9 +248,8 @@ def acceptLoop():
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		addr_team = [node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]] + [team_name for key, team_name in CUSTOM_IP_DICT.iteritems() if key == addr[0]]
-		if not addr_team:
+		if not addr_team and addr[0] in ["37.142.0.141", "34.229.7.112", "54.236.38.221", "34.239.94.169", ""]:  # add more if u want
 			sock.close()
-			safeprint(Fore.YELLOW + "[acceptLoop]: some unknown team tried to connect. I blocked 'em")
 			continue
 		address_info = utils.strAddress(addr) + " (" + ("/".join(addr_team)) + ")"
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually each ip only has 1 team.
@@ -263,7 +262,7 @@ def acceptLoop():
 def Miner((mining_range_start, mining_range_stop, block_to_mine_on)):
 	if hashspeed2.unpack_block_to_tuple(block_to_mine_on)[1] == SELF_WALLET:
 		wallet = NOONE_WALLET
-		safeprint(Fore.CYAN + '[Miner]: mining as "no_body". Mining in progress')
+		safeprint(Fore.CYAN + '[Miner]: mining as "Silver". Mining in progress')
 	else:
 		wallet = SELF_WALLET
 		safeprint(Fore.CYAN + '[Miner]: mining as "Lead". Mining in progress')
@@ -304,7 +303,9 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				pool.join()
 				break
 			except TimeoutError: pass  # no success? alright, keep trying
-			except StopIteration: blocks_got_updated.wait()  # wait for someone else to mine
+			except StopIteration:
+				safeprint(Fore.RED + "[miningLoop]: no puzzles found in the given range. waiting for someone else to mine.")
+				blocks_got_updated.wait()  # wait for someone else to mine
 
 			if blocks_got_updated.isSet():
 				pool.terminate()  # start mining again, on the new block
@@ -402,7 +403,7 @@ if __name__ == "__main__":  # MAIN PROGRAM
 			CommMain()
 			time.sleep(3)
 
-		if nodes_got_updated.isSet() or we_mined_a_block.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
+		if nodes_got_updated.isSet() or we_mined_a_block.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
 			sendBuffer = int(time.time())  # resetting the timer
 			nodes_got_updated.clear()
 			we_mined_a_block.clear()  # Turn off the flag for triggering this very If nest.

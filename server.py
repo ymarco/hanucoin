@@ -60,6 +60,7 @@ START_NODES = struct.pack(">I", 0xbeefbeef)  # {Instead of unpacking and compari
 START_BLOCKS = struct.pack(">I", 0xdeaddead)  # {will compare the raw string to the packed number.
 backup = open("backup.bin", "r+b")
 activeNodes = {}  # formatted as: {(ip, port): Node(ip, port, name, ts),...}
+CUSTOM_IP_DICT = dict([("77.126.78.232", "Silver"), ("37.142.217.162", "Copper"), ("77.138.196.166", "Oil")])
 blockList = []  # formatted as a binary list of all blocks - [block_bin_0, block_bin_1,...]
 nodes_lock = threading.Lock()
 blocks_lock = threading.Lock()  # locks prevent threads from changing the node and block lists at the same time
@@ -177,7 +178,7 @@ def updateByNodes(nodes_dict):
 	global activeNodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
-			if (int(time.time()) - 30 * 60) >= node.ts or (node.ts > int(time.time())) or (LOCALHOST, SELF_PORT) == addr or addr == (SELF_IP, SELF_PORT):
+			if (int(time.time()) - 30 * 60) >= node.ts or (node.ts > int(time.time())) or addr[0] == LOCALHOST or addr == (SELF_IP, SELF_PORT):
 				continue  # If it's a node from the future or from more than 30 minutes ago or contains our stuff
 
 			if addr not in activeNodes.keys():  # If it's a new node, add it
@@ -246,7 +247,12 @@ def acceptLoop():
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
+		addr_team = [node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]] + [team_name for key, team_name in CUSTOM_IP_DICT.iteritems() if key == addr[0]]
+		if not addr_team:
+			sock.close()
+			safeprint(Fore.YELLOW + "[acceptLoop]: some unknown team tried to connect. I blocked 'em")
+			continue
+		address_info = utils.strAddress(addr) + " (" + ("/".join(addr_team)) + ")"
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually each ip only has 1 team.
 		safeprint(Fore.YELLOW + Style.BRIGHT + "[acceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")
@@ -257,10 +263,10 @@ def acceptLoop():
 def Miner((mining_range_start, mining_range_stop, block_to_mine_on)):
 	if hashspeed2.unpack_block_to_tuple(block_to_mine_on)[1] == SELF_WALLET:
 		wallet = NOONE_WALLET
-		safeprint(Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress')
+		safeprint(Fore.CYAN + '[Miner]: mining as "no_body". Mining in progress')
 	else:
 		wallet = SELF_WALLET
-		safeprint(Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress')
+		safeprint(Fore.CYAN + '[Miner]: mining as "Lead". Mining in progress')
 	for i in xrange(mining_range_start, mining_range_stop):
 		start_num = i * (1 << 16)
 		new_block = hashspeed2.MineCoinAttempts(wallet, block_to_mine_on, start_num, 1 << 16)

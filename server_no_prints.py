@@ -137,8 +137,8 @@ def parseMsg(msg, desired_cmd):
 	msg = CutStr(msg)
 	nodes = {}
 	blocks = []
-	if desired_cmd != struct.unpack(">I", msg.cut(4))[0]: raise ValueError("[parseMsg]: Wrong cmd accepted")
-	if msg.cut(4) != START_NODES: raise ValueError("[parseMsg]: Wrong start_nodes")
+	if desired_cmd != struct.unpack(">I", msg.cut(4))[0]: raise ValueError("[ParseMsg]: Wrong cmd accepted")
+	if msg.cut(4) != START_NODES: raise ValueError("[ParseMsg]: Wrong start_nodes")
 	node_count = struct.unpack(">I", msg.cut(4))[0]
 	for _ in xrange(node_count):
 		name_len = struct.unpack("B", msg.cut(1))[0]
@@ -149,7 +149,7 @@ def parseMsg(msg, desired_cmd):
 		ts = struct.unpack(">I", msg.cut(4))[0]
 		nodes[(host, port)] = Node(host, port, name, ts)
 
-	if msg.cut(4) != START_BLOCKS: raise ValueError("[parseMsg]: Wrong start_blocks")
+	if msg.cut(4) != START_BLOCKS: raise ValueError("[ParseMsg]: Wrong start_blocks")
 	block_count = struct.unpack(">I", msg.cut(4))[0]
 	for _ in xrange(block_count):
 		blocks.append(msg.cut(32))
@@ -207,10 +207,10 @@ def recvMsg(sock, desired_msg_cmd, timeout=15):
 		try: nodes, blocks = parseMsg(data, desired_msg_cmd)
 		except CutError: continue
 		except ValueError as err:
-			safeprint(Fore.MAGENTA + '[recvMsg]: invalid data received, error: ', err)
+			safeprint(Fore.MAGENTA + '[RecvMsg]: invalid data received, error: ', err)
 			return {}, []
 		else:
-			safeprint(Fore.GREEN + '[recvMsg]: message received successfully')
+			safeprint(Fore.GREEN + '[RecvMsg]: message received successfully')
 			return nodes, blocks
 	return {}, []
 
@@ -227,9 +227,9 @@ def handleInSock(sock, address_info):
 		updateByNodes(nodes)
 		updateByBlocks(blocks)
 
-	except socket.timeout as err: safeprint(Fore.MAGENTA + '[handleInSock]: socket.timeout while connected to {}, error: "{}"'.format(address_info, err))
-	except socket.error as err: safeprint(Fore.RED + '[handleInSock]: socket.error while connected to {}, error: "{}"'.format(address_info, err))  # Select will be added later
-	else: safeprint(Fore.GREEN + '[handleInSock]: reply of %dkb sent successfully back to: %s' % (len(out_message)//(1 << 10), address_info))
+	except socket.timeout as err: safeprint(Fore.MAGENTA + '[HandleInSock]: socket.timeout while connected to {}, error: "{}"'.format(address_info, err))
+	except socket.error as err: safeprint(Fore.RED + '[HandleInSock]: socket.error while connected to {}, error: "{}"'.format(address_info, err))  # Select will be added later
+	else: safeprint(Fore.GREEN + '[HandleInSock]: reply of %dkb sent successfully back to: %s' % (len(out_message)//(1 << 10), address_info))
 	finally: sock.close()
 
 
@@ -247,7 +247,7 @@ def acceptLoop():
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in g_nodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually each ip only has 1 team.
-		safeprint(Fore.YELLOW + Style.BRIGHT + "[acceptLoop]: got a connection from: " + address_info)
+		safeprint(Fore.YELLOW + Style.BRIGHT + "[AcceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")
 		handleInSockThread.daemon = True
 		handleInSockThread.start()
@@ -256,10 +256,10 @@ def acceptLoop():
 def Miner((mining_range_start, mining_range_stop, block_to_mine_on)):
 	if hashspeed2.unpack_block_to_tuple(block_to_mine_on)[1] == SELF_WALLET:
 		wallet = NOONE_WALLET
-		safeprint(Fore.CYAN + '[miningLoop]: mining as "no_body". Mining in progress')
+		safeprint(Fore.CYAN + '[MiningLoop]: mining as "no_body". Mining in progress')
 	else:
 		wallet = SELF_WALLET
-		safeprint(Fore.CYAN + '[miningLoop]: mining as "Lead". Mining in progress')
+		safeprint(Fore.CYAN + '[MiningLoop]: mining as "Lead". Mining in progress')
 	safeprint("Miner: we are  done with the if's")
 	for i in xrange(mining_range_start, mining_range_stop):
 		start_num = i * (1 << 16)
@@ -279,7 +279,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 
 	time.sleep(10)  # wait for blockList to update
 	while not blockList:
-		safeprint(Fore.YELLOW + "[miningLoop]: blockList is empty")
+		safeprint(Fore.YELLOW + "[MiningLoop]: blockList is empty")
 		time.sleep(3)  # wait, maybe blockList will get an update
 
 	while True:
@@ -291,7 +291,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				new_block = res_obj.next(2)  # raises TimeoutError if res_obj doesnt have results
 				if not new_block: continue  # possible that the for loop in Miner finished without success - if so, it returns None
 				# we DID mine!
-				safeprint(Style.BRIGHT + Fore.GREEN + "[miningLoop]: Mining attempt succeeded (!) \a")
+				safeprint(Style.BRIGHT + Fore.GREEN + "[MiningLoop]: Mining attempt succeeded (!) \a")
 				pool.terminate()  # no need for the other Miners to continue mining on that block
 				blockList.append(new_block)
 				we_mined_a_block.set()
@@ -302,7 +302,7 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 			if blocks_got_updated.isSet():
 				pool.terminate()  # start mining again, on the new block
 				blocks_got_updated.clear()
-				safeprint(Fore.RED + "[miningLoop]: someone else succeeded mining D:")
+				safeprint(Fore.RED + "[MiningLoop]: someone else succeeded mining D:")
 				pool.join()
 				break
 
@@ -373,7 +373,7 @@ if __name__ == "__main__":  # MAIN PROGRAM
 	if backupMSG:
 		safeprint('Loading backup')
 		BACKUP_NODES, _ = parseMsg(backupMSG, 1)  # get nodes from backup file
-		updateByNodes(BACKUP_NODES)  # we don't want to updateByBlocks cause these blocks are probably outdated
+		updateByNodes(BACKUP_NODES)  # we don't want to UpdateByBlocks cause these blocks are probably outdated
 
 	while True:
 		if int(time.time()) - 5 * 60 >= periodicalBuffer:  # Backup every 5 minutes:
@@ -399,7 +399,7 @@ if __name__ == "__main__":  # MAIN PROGRAM
 			sendBuffer = int(time.time())  # resetting the timer
 			nodes_got_updated.clear()
 			we_mined_a_block.clear()  # Turn off the flag for triggering this very If nest.
-			# don't clear blocks_got_updated - miningLoop should clear it on its own
+			# don't clear blocks_got_updated - MiningLoop should clear it on its own
 			for node in sample(g_nodes.viewvalues(), min(3, len(g_nodes))):  # Random 3 addresses (or less when there are less than 3 available)
 				CommOutThread = threading.Thread(target=CommOut, args=(node[:2], node.team), name=utils.strAddress(node[:3]) + " CommOut")
 				CommOutThread.daemon = True
@@ -407,13 +407,13 @@ if __name__ == "__main__":  # MAIN PROGRAM
 
 		if exit_event.wait(1): break  # we don't want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
 
-	# we will get here somehow, probably user input from debugLoop:
+	# we will get here somehow, probably user input from DebugLoop:
 	safeprint("Main thread ended, terminating program.")
 	backup.close()  # sys.exit(0)
 
 # TODO LIST:
 
-# 1. Make more things into functions (ex. file backup should be a function) | did writeBackup func ~Marco | did CommOut() ~Banos
+# 1. Make more things into functions (ex. file backup should be a function) | did WriteBackup func ~Marco | did CommOut() ~Banos
 # 2. We should probably rename mining_slice_1 and 2 to something more readable ~Banos | im open to suggestions ~Marco
 # 3. Simplify things regarding the exit event and the atexit registered function (add comments and improve variable names or thing of a different code design)
 # 4.

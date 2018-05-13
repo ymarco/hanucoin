@@ -59,8 +59,8 @@ we_mined_a_block = threading.Event()
 START_NODES = struct.pack(">I", 0xbeefbeef)  # {Instead of unpacking and comparing to the number every time we
 START_BLOCKS = struct.pack(">I", 0xdeaddead)  # {will compare the raw string to the packed number.
 backup = open("backup.bin", "r+b")
-activeNodes = {}  # formatted as: {(ip, port): Node(ip, port, name, ts),...}
-blockList = []  # formatted as a binary list of all blocks - [block_bin_0, block_bin_1,...]
+g_nodes = {}  # formatted as: {(ip, port): Node(ip, port, name, ts),...}
+g_blocks = []  # formatted as a binary list of all blocks - [block_bin_0, block_bin_1,...]
 nodes_lock = threading.Lock()
 blocks_lock = threading.Lock()  # locks prevent threads from changing the node and block lists at the same time
 print_lock = threading.Lock()
@@ -173,7 +173,7 @@ def createMsg(cmd, node_dict, block_list):
 
 
 def updateByNodes(nodes_dict):
-	global activeNodes
+	global g_nodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
 			if (int(time.time()) - 30 * 60) >= node.ts <= int(time.time()) or (node.ts > int(time.time())) or (LOCALHOST, SELF_PORT) == addr or addr == (SELF_IP, SELF_PORT):
@@ -189,7 +189,7 @@ def updateByNodes(nodes_dict):
 
 
 def updateByBlocks(blocks):
-	global blockList
+	global g_blocks
 	with blocks_lock:
 		if len(blockList) <= 2:
 			blockList = blocks
@@ -219,7 +219,7 @@ def handleInSock(sock, address_info):
 	try:
 		nodes, blocks = recvMsg(sock, desired_msg_cmd=1)
 		sock.shutdown(socket.SHUT_RD)  # Finished receiving, now sending.
-		out_message = createMsg(2, activeNodes.values() + [SELF_NODE], blockList)
+		out_message = createMsg(2, g_nodes.values() + [SELF_NODE], g_blocks)
 		sock.sendall(out_message)
 		# while bytes_sent < len(out_message):
 		# bytes_sent += sock.send(out_message[bytes_sent:])
@@ -245,7 +245,7 @@ def acceptLoop():
 	listen_socket.listen(1)
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
-		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in activeNodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
+		address_info = utils.strAddress(addr) + " (" + ("/".join([node.team for key, node in g_nodes.iteritems() if key[0] == addr[0]]) or "unknown team") + ")"
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually each ip only has 1 team.
 		safeprint(Fore.YELLOW + Style.BRIGHT + "[acceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=handleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")
@@ -270,7 +270,7 @@ def Miner((mining_range_start, mining_range_stop, block_to_mine_on)):
 
 def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_STOPPOINT):
 	mining_ranges = []
-	global blockList
+	global g_blocks
 	# preparing ranges for our workers to mine on:
 	for num in xrange(POOL_PROCESS_NUM):
 		start = mining_start_range + num*(mining_stop_range - mining_start_range)//POOL_PROCESS_NUM
@@ -311,12 +311,12 @@ def miningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 
 
 def addNode(ip, port, name, ts):
-	global activeNodes
+	global g_nodes
 	activeNodes.update({(ip, port): Node(ip, port, name, ts)})
 
 
 def debugLoop():  # 4th (!) thread for mostly printing wanted variables.
-	global sendBuffer, periodicalBuffer, activeNodes, blockList
+	global sendBuffer, periodicalBuffer, g_nodes, g_blocks
 	while True:
 		try:
 			inpt = raw_input(">")
@@ -331,7 +331,7 @@ def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' a
 	safeprint(Fore.YELLOW + "[CommOut]: trying to communicate with {}:".format(address_info))
 	sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock.connect((TAL_IP, TAL_PORT))  # Tal's main server - TeamDebug
-	out_msg = createMsg(1, activeNodes.values() + [SELF_NODE], blockList)
+	out_msg = createMsg(1, g_nodes.values() + [SELF_NODE], g_blocks)
 
 	try:
 		sock.sendall(out_msg)
@@ -379,18 +379,18 @@ if __name__ == "__main__":  # MAIN PROGRAM
 		if int(time.time()) - 5 * 60 >= periodicalBuffer:  # Backup every 5 minutes:
 			periodicalBuffer = int(time.time())  # Reset 5 min timer
 
-			writeBackup(createMsg(1, activeNodes.viewvalues(), []))
+			writeBackup(createMsg(1, g_nodes.viewvalues(), []))
 			SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
-			safeprint(Fore.CYAN + "activeNodes: " + str(activeNodes.viewkeys()))
+			safeprint(Fore.CYAN + "activeNodes: " + str(g_nodes.viewkeys()))
 			CommMain()  # Ensure that we are still up with the main server (Tal)
 
 			# DELETE 30 MIN OLD NODES:
-			for node in activeNodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
+			for node in g_nodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
 				if int(time.time()) - node.ts > 30 * 60:  # the node wasn't seen in 30 min:
 					safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
-					del activeNodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
+					del g_nodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in activeNodes
 
-		elif not activeNodes:
+		elif not g_nodes:
 			safeprint(Fore.MAGENTA + "activeNodes is empty, attempting communication with TeamDebug:")
 			CommMain()
 			time.sleep(3)
@@ -400,7 +400,7 @@ if __name__ == "__main__":  # MAIN PROGRAM
 			nodes_got_updated.clear()
 			we_mined_a_block.clear()  # Turn off the flag for triggering this very If nest.
 			# don't clear blocks_got_updated - miningLoop should clear it on its own
-			for node in sample(activeNodes.viewvalues(), min(3, len(activeNodes))):  # Random 3 addresses (or less when there are less than 3 available)
+			for node in sample(g_nodes.viewvalues(), min(3, len(g_nodes))):  # Random 3 addresses (or less when there are less than 3 available)
 				CommOutThread = threading.Thread(target=CommOut, args=(node[:2], node.team), name=utils.strAddress(node[:3]) + " CommOut")
 				CommOutThread.daemon = True
 				CommOutThread.start()

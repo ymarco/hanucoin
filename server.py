@@ -33,13 +33,13 @@ LOCALHOST = '127.0.0.1'
 TEAM_NAME = "Lead"
 TAL_IP = "34.244.16.40"
 TAL_PORT = 8080
-mining_slice_1 = mining_slice_2 = 1
+mining_slice_numerator = mining_slice_denominator = 1
 POOL_PROCESS_NUM = 3
 CUSTOM_IP_DICT = dict([("77.126.78.232", "Silver"), ("37.142.217.162", "Copper"), ("77.138.196.166", "Oil")])
 # try to get port and stuff from user input:
 try:
 	SELF_PORT = int(sys.argv[1])
-	mining_slice_1, mining_slice_2 = map(int, sys.argv[2].split('/'))
+	mining_slice_numerator, mining_slice_denominator = map(int, sys.argv[2].split('/'))
 	# {we'll write what slice we want to mine in. useful when several copies of this server are running together.
 	# {say we want to run 3 servers, we'll run the 1st in '1/3' slice, 2nd in '2/3' slice, 3rd in '3/3' slice
 	# {so they try numbers for mining from different ranges.
@@ -49,8 +49,8 @@ try:
 except IndexError: pass
 
 
-MINING_STARTPOINT = ((mining_slice_1 - 1) * (1 << 16)) // mining_slice_2
-MINING_STOPPOINT = (mining_slice_1 * (1 << 16)) // mining_slice_2
+MINING_STARTPOINT = ((mining_slice_numerator - 1) * (1 << 16)) // mining_slice_denominator
+MINING_STOPPOINT = (mining_slice_numerator * (1 << 16)) // mining_slice_denominator
 
 periodicalBuffer = sendBuffer = int(time.time())
 
@@ -356,6 +356,21 @@ def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' a
 def CommMain():  # Communicate with the main server (Tal's)
 	CommOut((TAL_IP, TAL_PORT), team_info="CommMain: TeamDebug")
 
+def PeriodicalEvents(): #runs every 5 minutes
+	WriteBackup(CreateMsg(1, g_nodes.viewvalues(), []))
+	SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
+	safeprint(Fore.CYAN + "g_nodes: " + str(g_nodes.viewkeys()))
+	CommMain()  # Ensure that we are still up with the main server (Tal)
+	DeleteOldNodes()
+
+def DeleteOldNodes():
+	with nodes_lock:
+		for addr,node in g_nodes.items():  # using items rather than iteritems is important because we are deleting keys from the dictionary.
+			if int(time.time()) - node.ts > 30 * 60:  # the node wasn't seen in 30 min:
+				safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
+				del g_nodes[addr]
+
+
 
 if __name__ == "__main__":  # MAIN PROGRAM
 
@@ -381,26 +396,21 @@ if __name__ == "__main__":  # MAIN PROGRAM
 		UpdateByNodes(BACKUP_NODES)  # we don't want to UpdateByBlocks cause these blocks are probably outdated
 
 	while True:
-		if int(time.time()) - 5 * 60 >= periodicalBuffer:  # Backup every 5 minutes:
-			periodicalBuffer = int(time.time())  # Reset 5 min timer
-
+		if int(time.time()) - 5 * 60 >= periodicalBuffer:  # EVERY 5 MINUTES
 			WriteBackup(CreateMsg(1, g_nodes.viewvalues(), []))
 			SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
 			safeprint(Fore.CYAN + "g_nodes: " + str(g_nodes.viewkeys()))
 			CommMain()  # Ensure that we are still up with the main server (Tal)
+			DeleteOldNodes()
 
-			# DELETE 30 MIN OLD NODES:
-			for node in g_nodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
-				if int(time.time()) - node.ts > 30 * 60:  # the node wasn't seen in 30 min:
-					safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
-					node.RemoveFromNodesDict()  # node[:2] returns (host,port) which happens to also be node's key in g_nodes
+			periodicalBuffer = int(time.time()) #reset timer
 
 		elif not g_nodes:
 			safeprint(Fore.MAGENTA + "g_nodes is empty, attempting communication with TeamDebug:")
 			CommMain()
 			time.sleep(20)
 
-		if nodes_got_updated.isSet() or we_mined_a_block.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # Every 5 minutes, or when nodes_got_updated is true:
+		if nodes_got_updated.isSet() or we_mined_a_block.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # 
 			sendBuffer = int(time.time())  # resetting the timer
 			nodes_got_updated.clear()
 			we_mined_a_block.clear()  # Turn off the flag for triggering this very If nest.
@@ -410,16 +420,15 @@ if __name__ == "__main__":  # MAIN PROGRAM
 				CommOutThread.daemon = True
 				CommOutThread.start()
 
-		if exit_event.wait(1): break  # we don't want the laptop to hang. (returns True if exit event is set, otherwise returns False after a second.)
+		if exit_event.wait(1): break  #(returns True if exit event is set, otherwise sleeps for 1 second and returns False.)
 
-	# we will get here somehow, probably user input from DebugLoop:
 	safeprint("Main thread ended, terminating program.")
 	backup.close()  # sys.exit(0)
 
 # TODO LIST:
 
 # 1. Make more things into functions (ex. file backup should be a function) | did WriteBackup func ~Marco | did CommOut() ~Banos
-# 2. We should probably rename mining_slice_1 and 2 to something more readable ~Banos | im open to suggestions ~Marco
+# 2. We should probably rename mining_slice_numerator and 2 to something more readable ~Banos | im open to suggestions ~Marco
 # 3. Simplify things regarding the exit event and the atexit registered function (add comments and improve variable names or thing of a different code design)
 # 4.
 # 5.

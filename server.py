@@ -65,7 +65,6 @@ g_blocks = []  # formatted as a binary list of all blocks - [block_bin_0, block_
 nodes_lock = threading.Lock()
 blocks_lock = threading.Lock()  # locks prevent threads from changing the node and block lists at the same time
 print_lock = threading.Lock()
-time.sleep(0)
 
 
 def safeprint(*args):
@@ -113,15 +112,15 @@ class CutError(IndexError):
 
 
 class CutStr(object):  # String with a self.cut(bytes) method which works like file.read(bytes).
-	"""
-	>>> CutObj = CutStr("abcdefg")
-	>>> CutObj.string
-	"abcdefg"
-	>>> CutObj.cut(2)
-	"ab"
-	>>> CutObj.string
-	"cdefg"
-	"""
+	
+	# >>> CutObj = CutStr("abcdefg")
+	# >>> CutObj.string
+	# "abcdefg"
+	# >>> CutObj.cut(2)
+	# "ab"
+	# >>> CutObj.string
+	# "cdefg"
+
 
 	def __init__(self, string):
 		self.string = string
@@ -136,15 +135,6 @@ class CutStr(object):  # String with a self.cut(bytes) method which works like f
 		piece = self.string[:bytes_to_cut]
 		self.string = self.string[bytes_to_cut:]
 		return piece
-
-
-def WriteBackup(msg):
-	global backup
-	backup.seek(0)  # go to the start of the file
-	backup.write(msg)  # write in the new backup
-	backup.truncate()  # delete anything left from the previous backup
-	backup.flush()  # save info.
-	safeprint(Fore.CYAN + "- File backup is done")
 
 
 def ParseMsg(msg, desired_cmd):
@@ -317,7 +307,7 @@ def MiningLoop(mining_start_range=MINING_STARTPOINT, mining_stop_range=MINING_ST
 				break
 
 
-# >*****DEBUG*******
+# >>>>>>>>>>>>>*****DEBUG*******
 
 def DebugLoop():  # 4th (!) thread for mostly printing wanted variables.
 	global sendBuffer, periodicalBuffer, g_nodes, g_blocks
@@ -328,6 +318,7 @@ def DebugLoop():  # 4th (!) thread for mostly printing wanted variables.
 			else: exec inpt
 		except Exception as err: safeprint(err)
 
+# <<<<<<<<<<<<****DEBUG*********
 
 def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' argument for prints)
 	team_str = (team_info and " (" + team_info + ")")  # Will add '(<team>)' to the prints if team string is present.
@@ -356,12 +347,15 @@ def CommOut(addr, team_info=""):  # Send and receive response (optional 'team' a
 def CommMain():  # Communicate with the main server (Tal's)
 	CommOut((TAL_IP, TAL_PORT), team_info="CommMain: TeamDebug")
 
-def PeriodicalEvents(): #runs every 5 minutes
-	WriteBackup(CreateMsg(1, g_nodes.viewvalues(), []))
-	SELF_NODE.ts = int(time.time())  # Update our own node's timestamp.
-	safeprint(Fore.CYAN + "g_nodes: " + str(g_nodes.viewkeys()))
-	CommMain()  # Ensure that we are still up with the main server (Tal)
-	DeleteOldNodes()
+
+def WriteBackup(msg):
+	global backup
+	backup.seek(0)  # go to the start of the file
+	backup.write(msg)  # write in the new backup
+	backup.truncate()  # delete anything left from the previous backup
+	backup.flush()  # save info.
+	safeprint(Fore.CYAN + "- File backup is done")
+
 
 def DeleteOldNodes():
 	with nodes_lock:
@@ -374,15 +368,15 @@ def DeleteOldNodes():
 
 if __name__ == "__main__":  # MAIN PROGRAM
 
+	debugThread = threading.Thread(target=DebugLoop, name="debug")
+	debugThread.daemon = True
+	debugThread.start()
+
 	acceptThread = threading.Thread(target=AcceptLoop, name="accept")
 	acceptThread.daemon = True
 	acceptThread.start()
 
 	CommMain()  # Communicate with Tal for the first time
-
-	debugThread = threading.Thread(target=DebugLoop, name="debug")
-	debugThread.daemon = True
-	debugThread.start()
 
 	if POOL_PROCESS_NUM != 0:
 		miningThread = threading.Thread(target=MiningLoop, name="mining")
@@ -405,11 +399,6 @@ if __name__ == "__main__":  # MAIN PROGRAM
 
 			periodicalBuffer = int(time.time()) #reset timer
 
-		elif not g_nodes:
-			safeprint(Fore.MAGENTA + "g_nodes is empty, attempting communication with TeamDebug:")
-			CommMain()
-			time.sleep(20)
-
 		if nodes_got_updated.isSet() or we_mined_a_block.isSet() or blocks_got_updated.isSet() or int(time.time()) - 5*60 >= sendBuffer:  # 
 			sendBuffer = int(time.time())  # resetting the timer
 			nodes_got_updated.clear()
@@ -423,13 +412,14 @@ if __name__ == "__main__":  # MAIN PROGRAM
 		if exit_event.wait(1): break  #(returns True if exit event is set, otherwise sleeps for 1 second and returns False.)
 
 	safeprint("Main thread ended, terminating program.")
-	backup.close()  # sys.exit(0)
+	backup.close()
+	#sys.exit(0)
 
 # TODO LIST:
 
-# 1. Make more things into functions (ex. file backup should be a function) | did WriteBackup func ~Marco | did CommOut() ~Banos
-# 2. We should probably rename mining_slice_numerator and 2 to something more readable ~Banos | im open to suggestions ~Marco
-# 3. Simplify things regarding the exit event and the atexit registered function (add comments and improve variable names or thing of a different code design)
+# 1. 
+# 2. 
+# 3. 
 # 4.
 # 5.
 

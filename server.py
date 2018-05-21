@@ -243,7 +243,7 @@ def AcceptLoop():
 	while True:
 		sock, addr = listen_socket.accept()  # synchronous, blocking
 		addr_team = [node.team for key, node in g_nodes.iteritems() if key[0] == addr[0]] + [team_name for key, team_name in CUSTOM_IP_DICT.iteritems() if key == addr[0]]
-		address_info = utils.strAddress(addr) + " (%s)" % ("/".join(addr_team) or "Itamar's agents")
+		address_info = utils.strAddress(addr) + " (%s)" % ("/".join(addr_team) or "Unknown")
 		#  ^ evaluates to "ip:port (team1/team2/team3)". usually each ip only has 1 team.
 		safeprint(Fore.YELLOW + Style.BRIGHT + "[AcceptLoop]: got a connection from: " + address_info)
 		handleInSockThread = threading.Thread(target=HandleInSock, args=(sock, address_info), name=utils.strAddress(addr) + " inputThread")

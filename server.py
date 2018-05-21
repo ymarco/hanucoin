@@ -92,6 +92,18 @@ class Node(object):
 	def __getitem__(self, index):
 		return (self.host, self.port, self.team, self.ts)[index]
 
+	def AddToNodeDict(self):
+		global g_nodes
+		g_nodes[self[:2]] = self
+
+	def UpdateNodeTS(self):
+		global g_nodes
+		g_nodes[self[:2]].ts = self.ts
+
+	def RemoveFromNodesDict(self):
+		global g_nodes
+		del g_nodes[self[:2]]
+
 
 SELF_NODE = Node(SELF_IP, SELF_PORT, TEAM_NAME, int(time.time()))
 
@@ -175,7 +187,6 @@ def CreateMsg(cmd, node_dict, block_list):
 
 
 def UpdateByNodes(nodes_dict):
-	global g_nodes
 	with nodes_lock:
 		for addr, node in nodes_dict.iteritems():
 			if (int(time.time()) - 30 * 60) >= node.ts or (node.ts > int(time.time())) or addr[0] == LOCALHOST or addr == (SELF_IP, SELF_PORT):
@@ -183,9 +194,9 @@ def UpdateByNodes(nodes_dict):
 
 			if addr not in g_nodes.keys():  # If it's a new node, add it
 				nodes_got_updated.set()
-				g_nodes[addr] = node
+				node.AddToNodeDict()
 			elif g_nodes[addr].ts < node.ts:  # elif prevents exceptions here (g_nodes[addr] exists - we already have this node)
-				g_nodes[addr].ts = node.ts  # the node was seen later than what we have in g_nodes, so we update the ts
+				node.UpdateNodeTS()  # the node was seen later than what we have in g_nodes, so we update the ts
 
 
 def UpdateByBlocks(blocks):
@@ -382,7 +393,7 @@ if __name__ == "__main__":  # MAIN PROGRAM
 			for node in g_nodes.values():  # using values rather than itervalues is important because we are deleting keys from the dictionary.
 				if int(time.time()) - node.ts > 30 * 60:  # the node wasn't seen in 30 min:
 					safeprint(Fore.YELLOW + "Deleted: {}'s node as it wasn't seen in 30 min".format(node[:3]))
-					del g_nodes[node[:2]]  # node[:2] returns (host,port) which happens to also be node's key in g_nodes
+					node.RemoveFromNodesDict()  # node[:2] returns (host,port) which happens to also be node's key in g_nodes
 
 		elif not g_nodes:
 			safeprint(Fore.MAGENTA + "g_nodes is empty, attempting communication with TeamDebug:")

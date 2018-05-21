@@ -8,3 +8,4 @@ cd ..
 *.bin
 backup.bin
 spam.py
+*.o

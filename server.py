@@ -151,7 +151,7 @@ def ParseMsg(msg, desired_cmd):
 	msg = CutStr(msg)
 	nodes = {}
 	blocks = []
-	if desired_cmd != struct.unpack(">I", msg.cut(4))[0]: raise ValueError("[ParseMsg]: Wrong cmd accepted")
+	if desired_cmd != struct.unpack(">I", msg.cut(4))[0]: raise ValueError("[ParseMsg]: Wrong cmd recieved")
 	if msg.cut(4) != START_NODES: raise ValueError("[ParseMsg]: Wrong start_nodes")
 	node_count = struct.unpack(">I", msg.cut(4))[0]
 	for _ in xrange(node_count):
